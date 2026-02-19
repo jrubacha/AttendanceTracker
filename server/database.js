@@ -1,4 +1,4 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,13 +8,80 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 const DB_PATH = path.join(DATA_DIR, 'attendance.sqlite');
-const db = new Database(DB_PATH);
 
-// Enable WAL mode for better concurrent read performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Internal sql.js database instance (set during initialize)
+let _sqlDb = null;
 
-function initialize() {
+function _save() {
+  if (!_sqlDb) return;
+  const data = _sqlDb.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
+}
+
+// Compatibility wrapper that provides the same API as better-sqlite3
+// so all route files can remain unchanged.
+const db = {
+  prepare(sql) {
+    return {
+      run(...params) {
+        const stmt = _sqlDb.prepare(sql);
+        if (params.length > 0) stmt.bind(params);
+        stmt.step();
+        stmt.free();
+        const changes = _sqlDb.getRowsModified();
+        const result = _sqlDb.exec('SELECT last_insert_rowid()');
+        const lastInsertRowid = result.length > 0 ? result[0].values[0][0] : 0;
+        _save();
+        return { changes, lastInsertRowid };
+      },
+      get(...params) {
+        const stmt = _sqlDb.prepare(sql);
+        if (params.length > 0) stmt.bind(params);
+        let row = undefined;
+        if (stmt.step()) {
+          row = stmt.getAsObject();
+        }
+        stmt.free();
+        return row;
+      },
+      all(...params) {
+        const stmt = _sqlDb.prepare(sql);
+        if (params.length > 0) stmt.bind(params);
+        const results = [];
+        while (stmt.step()) {
+          results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+      }
+    };
+  },
+  exec(sql) {
+    _sqlDb.exec(sql);
+    _save();
+  },
+  pragma(str) {
+    _sqlDb.exec(`PRAGMA ${str}`);
+  }
+};
+
+async function initialize() {
+  const SQL = await initSqlJs();
+
+  if (fs.existsSync(DB_PATH)) {
+    const buffer = fs.readFileSync(DB_PATH);
+    if (buffer.length > 0) {
+      _sqlDb = new SQL.Database(new Uint8Array(buffer));
+    } else {
+      _sqlDb = new SQL.Database();
+    }
+  } else {
+    _sqlDb = new SQL.Database();
+  }
+
+  // Enable foreign keys (WAL mode is not applicable with sql.js)
+  db.pragma('foreign_keys = ON');
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
