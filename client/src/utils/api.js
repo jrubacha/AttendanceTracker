@@ -66,6 +66,7 @@ export const api = {
   createManualEntry: (data) => request('/time-entries/manual', { method: 'POST', body: data }),
   updateEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
   deleteEntry: (id) => request(`/time-entries/${id}`, { method: 'DELETE' }),
+  toggleAttendance: (student_id, meeting_id) => request('/time-entries/toggle-attendance', { method: 'POST', body: { student_id, meeting_id } }),
 
   // Exemptions
   getStudentExemptions: (studentId, seasonId) => request(`/exemptions/student/${studentId}?seasonId=${seasonId || ''}`),

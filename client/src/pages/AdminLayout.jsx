@@ -22,7 +22,7 @@ function AdminLayout({ admin, onLogout }) {
   return (
     <div className="min-h-screen bg-kiosk-bg flex">
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:block w-56 bg-kiosk-surface border-r border-slate-700 flex-shrink-0 fixed md:static inset-0 z-50`}>
+      <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:block w-56 bg-kiosk-surface border-r border-slate-700 flex-shrink-0 fixed md:relative inset-0 z-50`}>
         <div className="p-4 border-b border-slate-700">
           <h2 className="text-kiosk-text font-bold text-lg">Attendance</h2>
           <p className="text-kiosk-muted text-xs">Admin Panel</p>
