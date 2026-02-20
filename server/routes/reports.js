@@ -20,8 +20,14 @@ function calculateMeetingHours(entry, meeting) {
   const meetingStart = dayjs(`${meeting.date} ${meeting.start_time}`);
   const meetingEnd = dayjs(`${meeting.date} ${meeting.end_time}`);
 
+  // If clocked out within 5 minutes of meeting end, credit through meeting end
+  const graceThreshold = meetingEnd.subtract(5, 'minute');
+  const adjustedClockOut = (clockOut.isAfter(graceThreshold) && clockOut.isBefore(meetingEnd))
+    ? meetingEnd
+    : clockOut;
+
   const effectiveStart = clockIn.isAfter(meetingStart) ? clockIn : meetingStart;
-  const effectiveEnd = clockOut.isBefore(meetingEnd) ? clockOut : meetingEnd;
+  const effectiveEnd = adjustedClockOut.isBefore(meetingEnd) ? adjustedClockOut : meetingEnd;
 
   if (effectiveEnd.isBefore(effectiveStart)) return 0;
 
