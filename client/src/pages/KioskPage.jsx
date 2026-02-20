@@ -76,6 +76,19 @@ function KioskPage() {
     }
   }, [pin, student]);
 
+  // Accept keyboard input for PIN entry
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key >= '0' && e.key <= '9') {
+        handleKey(e.key);
+      } else if (e.key === 'Backspace') {
+        handleKey('⌫');
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKey]);
+
   async function handleClockIn() {
     try {
       const result = await api.clockIn(student.id);
