@@ -76,6 +76,25 @@ function KioskPage() {
     }
   }, [pin, student]);
 
+  // Accept keyboard input for PIN entry and Enter for clock in/out
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key >= '0' && e.key <= '9') {
+        handleKey(e.key);
+      } else if (e.key === 'Backspace') {
+        handleKey('⌫');
+      } else if (e.key === 'Enter' && student && !message) {
+        if (clockedIn) {
+          handleClockOut();
+        } else {
+          handleClockIn();
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKey, student, message, clockedIn]);
+
   async function handleClockIn() {
     try {
       const result = await api.clockIn(student.id);

@@ -161,6 +161,36 @@ router.put('/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// Toggle attendance for a student at a meeting (admin)
+router.post('/toggle-attendance', requireAdmin, (req, res) => {
+  const { student_id, meeting_id } = req.body;
+  if (!student_id || !meeting_id) {
+    return res.status(400).json({ error: 'Student ID and Meeting ID required' });
+  }
+
+  const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(meeting_id);
+  if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+
+  // Check if the student already has entries for this meeting
+  const existing = db.prepare(
+    'SELECT * FROM time_entries WHERE student_id = ? AND meeting_id = ?'
+  ).all(student_id, meeting_id);
+
+  if (existing.length > 0) {
+    // Remove attendance - delete all entries for this meeting
+    db.prepare('DELETE FROM time_entries WHERE student_id = ? AND meeting_id = ?').run(student_id, meeting_id);
+    res.json({ attended: false });
+  } else {
+    // Add attendance - create entry covering the full meeting window
+    const clockIn = `${meeting.date} ${meeting.start_time}:00`;
+    const clockOut = `${meeting.date} ${meeting.end_time}:00`;
+    const result = db.prepare(
+      'INSERT INTO time_entries (student_id, meeting_id, clock_in, clock_out, is_late) VALUES (?, ?, ?, ?, 0)'
+    ).run(student_id, meeting_id, clockIn, clockOut);
+    res.json({ attended: true, entry: { id: result.lastInsertRowid } });
+  }
+});
+
 // Delete time entry (admin)
 router.delete('/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM time_entries WHERE id = ?').run(req.params.id);

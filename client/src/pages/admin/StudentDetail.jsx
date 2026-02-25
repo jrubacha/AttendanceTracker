@@ -117,6 +117,13 @@ function StudentDetail() {
     } catch { /* ignore */ }
   }
 
+  async function handleToggleAttendance(meetingId) {
+    try {
+      await api.toggleAttendance(parseInt(id), meetingId);
+      loadReport();
+    } catch { /* ignore */ }
+  }
+
   if (!student) return <div className="text-kiosk-muted">Loading...</div>;
 
   return (
@@ -279,7 +286,17 @@ function StudentDetail() {
                     <td className="p-2 text-kiosk-text">{m.date}</td>
                     <td className="p-2 text-kiosk-muted">{m.start_time}–{m.end_time}</td>
                     <td className={`p-2 text-center capitalize ${statusColors[m.status] || 'text-kiosk-muted'}`}>
-                      {m.status}{m.wasLate ? ' (late)' : ''}{m.wasAutoClockout ? ' (auto-co)' : ''}
+                      {!m.is_cancelled && !m.isExempt && m.date <= new Date().toISOString().slice(0, 10) ? (
+                        <button
+                          onClick={() => handleToggleAttendance(m.id)}
+                          className="hover:underline cursor-pointer"
+                          title={m.attended ? 'Click to mark absent' : 'Click to mark present'}
+                        >
+                          {m.status}{m.wasLate ? ' (late)' : ''}{m.wasAutoClockout ? ' (auto-co)' : ''}
+                        </button>
+                      ) : (
+                        <>{m.status}{m.wasLate ? ' (late)' : ''}{m.wasAutoClockout ? ' (auto-co)' : ''}</>
+                      )}
                     </td>
                     <td className="p-2 text-center">
                       {!m.is_cancelled && m.is_mandatory && (

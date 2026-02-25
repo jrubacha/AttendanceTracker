@@ -20,8 +20,14 @@ function calculateMeetingHours(entry, meeting) {
   const meetingStart = dayjs(`${meeting.date} ${meeting.start_time}`);
   const meetingEnd = dayjs(`${meeting.date} ${meeting.end_time}`);
 
+  // If clocked out within 5 minutes of meeting end, credit through meeting end
+  const graceThreshold = meetingEnd.subtract(5, 'minute');
+  const adjustedClockOut = (clockOut.isAfter(graceThreshold) && clockOut.isBefore(meetingEnd))
+    ? meetingEnd
+    : clockOut;
+
   const effectiveStart = clockIn.isAfter(meetingStart) ? clockIn : meetingStart;
-  const effectiveEnd = clockOut.isBefore(meetingEnd) ? clockOut : meetingEnd;
+  const effectiveEnd = adjustedClockOut.isBefore(meetingEnd) ? adjustedClockOut : meetingEnd;
 
   if (effectiveEnd.isBefore(effectiveStart)) return 0;
 
@@ -109,7 +115,11 @@ function calculateStudentAttendance(studentId, seasonId) {
   let exemptionCount = exemptions.length;
 
   // Calculate mandatory hours available (denominator)
+  // Only count meetings up to and including today so that future meetings
+  // don't deflate students' attendance percentages
+  const today = dayjs().format('YYYY-MM-DD');
   for (const meeting of meetings) {
+    if (meeting.date > today) continue;
     if (meeting.is_cancelled) continue;
     if (!meeting.is_mandatory) continue;
     if (exemptions.includes(meeting.id)) continue;
