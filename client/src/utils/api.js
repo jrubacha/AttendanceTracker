@@ -85,4 +85,7 @@ export const api = {
   getDashboard: (seasonId) => request(`/reports/dashboard/${seasonId}`),
   getStudentReport: (studentId, seasonId) => request(`/reports/student/${studentId}/${seasonId}`),
   exportCsv: (seasonId, detailed = false) => `${API_BASE}/reports/export/${seasonId}?detailed=${detailed}`,
+
+  // Import
+  importAttendance: (csv) => request('/import/attendance', { method: 'POST', body: { csv } }),
 };
