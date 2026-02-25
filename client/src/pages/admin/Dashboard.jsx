@@ -114,10 +114,12 @@ function Dashboard() {
               <th className="p-3 text-kiosk-muted cursor-pointer hover:text-kiosk-text" onClick={() => toggleSort('name')}>
                 Name{SortArrow({ field: 'name' })}
               </th>
-              <th className="p-3 text-kiosk-muted cursor-pointer hover:text-kiosk-text text-right" onClick={() => toggleSort('mandatoryHoursAttended')}>
-                Hours{SortArrow({ field: 'mandatoryHoursAttended' })}
+              <th className="p-3 text-kiosk-muted cursor-pointer hover:text-kiosk-text text-right" onClick={() => toggleSort('totalCredited')}>
+                Total Hrs{SortArrow({ field: 'totalCredited' })}
               </th>
-              <th className="p-3 text-kiosk-muted text-right hidden md:table-cell">Available</th>
+              <th className="p-3 text-kiosk-muted cursor-pointer hover:text-kiosk-text text-right hidden md:table-cell" onClick={() => toggleSort('mandatoryHoursAttended')}>
+                Mandatory{SortArrow({ field: 'mandatoryHoursAttended' })}
+              </th>
               <th className="p-3 text-kiosk-muted cursor-pointer hover:text-kiosk-text text-right" onClick={() => toggleSort('percentage')}>
                 %{SortArrow({ field: 'percentage' })}
               </th>
@@ -138,8 +140,8 @@ function Dashboard() {
                   {student.name}
                   {student.hasAutoClockoutWarning && <span className="ml-2 text-kiosk-warning" title="3+ auto clock-outs">⚠</span>}
                 </td>
-                <td className="p-3 text-right text-kiosk-text">{student.mandatoryHoursAttended}</td>
-                <td className="p-3 text-right text-kiosk-muted hidden md:table-cell">{student.mandatoryHoursAvailable}</td>
+                <td className="p-3 text-right text-kiosk-text">{student.totalCredited}</td>
+                <td className="p-3 text-right text-kiosk-muted hidden md:table-cell">{student.mandatoryHoursAttended}/{student.mandatoryHoursAvailable}</td>
                 <td className="p-3 text-right font-bold" style={{ color: student.thresholdColor }}>
                   {student.percentage}%
                 </td>
