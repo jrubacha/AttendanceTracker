@@ -68,9 +68,9 @@ function calculateMeetingHours(entry, meeting) {
   return effectiveEnd.diff(effectiveStart, 'minute') / 60;
 }
 
-// Apply double time rules to hours
+// Apply double time rules to hours. meeting may be null for open-hours entries.
 function applyDoubleTime(entry, meeting, seasonId) {
-  if (!entry.clock_out || !meeting) return 0;
+  if (!entry.clock_out) return 0;
 
   const rules = db.prepare(
     'SELECT * FROM double_time_rules WHERE season_id = ?'
@@ -91,7 +91,8 @@ function applyDoubleTime(entry, meeting, seasonId) {
     } else if (rule.day_of_week !== null && rule.day_of_week !== dow) {
       continue;
     }
-    if (rule.meeting_id !== null && rule.meeting_id !== meeting.id) continue;
+    // If rule targets a specific meeting, skip when no meeting or wrong meeting
+    if (rule.meeting_id !== null && (!meeting || rule.meeting_id !== meeting.id)) continue;
 
     // Check condition
     if (rule.condition_type === 'clocked_in_before') {
@@ -99,15 +100,20 @@ function applyDoubleTime(entry, meeting, seasonId) {
       if (!clockIn.isBefore(conditionTime)) continue;
     }
 
-    // Calculate overlap with double time window
+    // Calculate overlap with double time window and clock-in/out
     const dtStart = dayjs(`${entryDate} ${rule.start_time}`);
     const dtEnd = dayjs(`${entryDate} ${rule.end_time}`);
-    const meetingStart = dayjs(`${meeting.date} ${meeting.start_time}`);
-    const meetingEnd = dayjs(`${meeting.date} ${meeting.end_time}`);
 
-    // Effective window is intersection of double-time window, meeting window, and clock-in/out
-    const effectiveStart = [clockIn, dtStart, meetingStart].reduce((a, b) => a.isAfter(b) ? a : b);
-    const effectiveEnd = [clockOut, dtEnd, meetingEnd].reduce((a, b) => a.isBefore(b) ? a : b);
+    // Constrain by meeting window only when a meeting is linked
+    const startConstraints = [clockIn, dtStart];
+    const endConstraints = [clockOut, dtEnd];
+    if (meeting) {
+      startConstraints.push(dayjs(`${meeting.date} ${meeting.start_time}`));
+      endConstraints.push(dayjs(`${meeting.date} ${meeting.end_time}`));
+    }
+
+    const effectiveStart = startConstraints.reduce((a, b) => a.isAfter(b) ? a : b);
+    const effectiveEnd = endConstraints.reduce((a, b) => a.isBefore(b) ? a : b);
 
     if (effectiveEnd.isAfter(effectiveStart)) {
       const hours = effectiveEnd.diff(effectiveStart, 'minute') / 60;
@@ -210,6 +216,9 @@ function calculateStudentAttendance(studentId, seasonId) {
       const clockIn = dayjs(entry.clock_in);
       const clockOut = dayjs(entry.clock_out);
       bonusHours += clockOut.diff(clockIn, 'minute') / 60;
+      // Apply double time even for open hours (e.g., Saturday early clock-in rules)
+      const dtBonus = applyDoubleTime(entry, null, seasonId);
+      bonusHours += dtBonus;
     }
   }
 
