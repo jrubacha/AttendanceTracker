@@ -279,13 +279,17 @@ function StudentDetail() {
       {/* Attendance summary */}
       {report && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
               <div className="text-kiosk-muted text-xs">Attendance</div>
               <div className="text-2xl font-bold text-kiosk-text">{report.percentage}%</div>
             </div>
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-              <div className="text-kiosk-muted text-xs">Hours (Mandatory)</div>
+              <div className="text-kiosk-muted text-xs">Total Hours</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.totalCredited}</div>
+            </div>
+            <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
+              <div className="text-kiosk-muted text-xs">Mandatory</div>
               <div className="text-2xl font-bold text-kiosk-text">{report.mandatoryHoursAttended} / {report.mandatoryHoursAvailable}</div>
             </div>
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
