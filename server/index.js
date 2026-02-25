@@ -26,6 +26,7 @@ async function main() {
   app.use('/api/thresholds', require('./routes/thresholds'));
   app.use('/api/double-time', require('./routes/doubleTime'));
   app.use('/api/reports', require('./routes/reports'));
+  app.use('/api/import', require('./routes/import'));
 
   // Database backup/download
   app.get('/api/backup', (req, res) => {

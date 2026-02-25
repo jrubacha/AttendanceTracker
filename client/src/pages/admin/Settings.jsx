@@ -7,6 +7,13 @@ function Settings() {
   const [thresholds, setThresholds] = useState([]);
   const [message, setMessage] = useState('');
 
+  // Import state
+  const [importCsv, setImportCsv] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [importResult, setImportResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
   useEffect(() => { loadSeasons(); }, []);
   useEffect(() => { if (selectedSeason) loadThresholds(); }, [selectedSeason]);
 
@@ -49,6 +56,31 @@ function Settings() {
     } catch { /* ignore */ }
   }
 
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportFileName(file.name);
+    setImportResult(null);
+    setImportError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => setImportCsv(ev.target.result);
+    reader.readAsText(file);
+  }
+
+  async function handleImport() {
+    if (!importCsv.trim()) return;
+    setImporting(true);
+    setImportResult(null);
+    setImportError('');
+    try {
+      const result = await api.importAttendance(importCsv);
+      setImportResult(result);
+    } catch (err) {
+      setImportError(err.message || 'Import failed');
+    }
+    setImporting(false);
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-kiosk-text mb-6">Settings</h1>
@@ -87,6 +119,71 @@ function Settings() {
             <button type="submit" className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600">Save Thresholds</button>
           </div>
         </form>
+      </div>
+
+      <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700 mb-6">
+        <h2 className="text-lg font-semibold text-kiosk-text mb-2">Import Attendance</h2>
+        <p className="text-kiosk-muted text-sm mb-4">
+          Upload a CSV file with columns: <span className="text-kiosk-text">Name, Date, Time In, Time Out</span>.
+          Students are matched by name. Time Out is optional.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-2">
+              <span className="sr-only">Choose CSV file</span>
+              <input type="file" accept=".csv,text/csv" onChange={handleFileSelect}
+                className="block w-full text-sm text-kiosk-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-kiosk-accent file:text-white hover:file:bg-blue-600 file:cursor-pointer" />
+            </label>
+            {importFileName && <p className="text-kiosk-muted text-xs mt-1">Selected: {importFileName}</p>}
+          </div>
+
+          {importCsv && (
+            <div>
+              <p className="text-kiosk-muted text-xs mb-1">Preview (first 5 lines):</p>
+              <pre className="bg-kiosk-bg border border-slate-600 rounded-lg p-3 text-xs text-kiosk-muted overflow-x-auto max-h-32">
+                {importCsv.split('\n').slice(0, 6).join('\n')}
+              </pre>
+            </div>
+          )}
+
+          <button onClick={handleImport} disabled={!importCsv.trim() || importing}
+            className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+            {importing ? 'Importing...' : 'Import'}
+          </button>
+
+          {importError && (
+            <div className="bg-red-500/20 text-red-400 p-3 rounded-lg text-sm">{importError}</div>
+          )}
+
+          {importResult && (
+            <div className="space-y-2">
+              <div className="bg-green-500/20 text-green-400 p-3 rounded-lg text-sm">
+                Imported {importResult.imported} of {importResult.totalRows} rows.
+              </div>
+              {importResult.skipped.length > 0 && (
+                <div className="bg-yellow-500/20 text-yellow-400 p-3 rounded-lg text-sm">
+                  <p className="font-semibold mb-1">Skipped ({importResult.skipped.length}):</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    {importResult.skipped.map((s, i) => (
+                      <li key={i}>Row {s.line}: {s.name ? `"${s.name}"` : ''} - {s.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {importResult.errors.length > 0 && (
+                <div className="bg-red-500/20 text-red-400 p-3 rounded-lg text-sm">
+                  <p className="font-semibold mb-1">Errors ({importResult.errors.length}):</p>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">
+                    {importResult.errors.map((e, i) => (
+                      <li key={i}>Row {e.line}: {e.name ? `"${e.name}"` : ''} - {e.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700">
