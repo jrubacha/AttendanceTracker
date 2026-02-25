@@ -11,6 +11,7 @@ const DB_PATH = path.join(DATA_DIR, 'attendance.sqlite');
 
 // Internal sql.js database instance (set during initialize)
 let _sqlDb = null;
+let _SQL = null;
 
 function _save() {
   if (!_sqlDb) return;
@@ -66,17 +67,17 @@ const db = {
 };
 
 async function initialize() {
-  const SQL = await initSqlJs();
+  _SQL = await initSqlJs();
 
   if (fs.existsSync(DB_PATH)) {
     const buffer = fs.readFileSync(DB_PATH);
     if (buffer.length > 0) {
-      _sqlDb = new SQL.Database(new Uint8Array(buffer));
+      _sqlDb = new _SQL.Database(new Uint8Array(buffer));
     } else {
-      _sqlDb = new SQL.Database();
+      _sqlDb = new _SQL.Database();
     }
   } else {
-    _sqlDb = new SQL.Database();
+    _sqlDb = new _SQL.Database();
   }
 
   // Enable foreign keys (WAL mode is not applicable with sql.js)
@@ -206,4 +207,19 @@ async function initialize() {
   } catch { /* column already exists */ }
 }
 
-module.exports = { db, initialize, DB_PATH, DATA_DIR };
+function reloadDatabase() {
+  if (!fs.existsSync(DB_PATH)) {
+    throw new Error('Database file not found');
+  }
+  const buffer = fs.readFileSync(DB_PATH);
+  if (buffer.length === 0) {
+    throw new Error('Database file is empty');
+  }
+  if (_sqlDb) {
+    _sqlDb.close();
+  }
+  _sqlDb = new _SQL.Database(new Uint8Array(buffer));
+  db.pragma('foreign_keys = ON');
+}
+
+module.exports = { db, initialize, DB_PATH, DATA_DIR, reloadDatabase };

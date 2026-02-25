@@ -2,7 +2,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
-const { initialize, DB_PATH, DATA_DIR } = require('./database');
+const { initialize, DB_PATH, DATA_DIR, reloadDatabase } = require('./database');
 const { startAutoClockoutScheduler } = require('./autoClockout');
 
 async function main() {
@@ -38,6 +38,42 @@ async function main() {
     res.setHeader('Content-Disposition', `attachment; filename="attendance-backup-${new Date().toISOString().slice(0,10)}.sqlite"`);
     const fileStream = fs.createReadStream(DB_PATH);
     fileStream.pipe(res);
+  });
+
+  // Database restore/import
+  app.post('/api/restore', express.raw({ type: 'application/octet-stream', limit: '100mb' }), (req, res) => {
+    const token = req.cookies?.adminToken;
+    if (!token) return res.status(401).json({ error: 'Auth required' });
+
+    if (!req.body || req.body.length === 0) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Validate the uploaded file is a valid SQLite database
+    // SQLite files start with the magic string "SQLite format 3\000"
+    const SQLITE_MAGIC = 'SQLite format 3\0';
+    const header = req.body.slice(0, 16).toString('ascii');
+    if (header !== SQLITE_MAGIC) {
+      return res.status(400).json({ error: 'Invalid file: not a SQLite database' });
+    }
+
+    try {
+      // Create a backup of the current database before overwriting
+      const backupPath = path.join(DATA_DIR, `attendance-pre-restore-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.sqlite`);
+      if (fs.existsSync(DB_PATH)) {
+        fs.copyFileSync(DB_PATH, backupPath);
+      }
+
+      // Write the uploaded database to disk
+      fs.writeFileSync(DB_PATH, req.body);
+
+      // Reload the in-memory database from the new file
+      reloadDatabase();
+
+      res.json({ success: true, message: 'Database restored successfully' });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to restore database: ' + err.message });
+    }
   });
 
   // Serve static files in production
