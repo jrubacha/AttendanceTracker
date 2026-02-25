@@ -155,11 +155,11 @@ function calculateStudentAttendance(studentId, seasonId) {
   let exemptionCount = exemptions.length;
 
   // Calculate mandatory hours available (denominator)
-  // Only count meetings up to and including today so that future meetings
-  // don't deflate students' attendance percentages
+  // Only count meetings BEFORE today so that today's meetings (which likely
+  // haven't happened yet) don't deflate attendance percentages
   const today = dayjs().format('YYYY-MM-DD');
   for (const meeting of meetings) {
-    if (meeting.date > today) continue;
+    if (meeting.date >= today) continue;
     if (meeting.is_cancelled) continue;
     if (!meeting.is_mandatory) continue;
     if (exemptions.includes(meeting.id)) continue;
