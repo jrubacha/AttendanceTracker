@@ -5,6 +5,40 @@ const { requireAdmin } = require('../auth');
 
 const router = express.Router();
 
+// Find the best overlapping non-cancelled meeting for a time entry based on time overlap.
+// Used when an entry's linked meeting was cancelled or when no meeting_id was stored
+// (e.g., custom meetings created after students already clocked in).
+function findOverlappingMeeting(entry, meetings) {
+  if (!entry.clock_out) return null;
+  const clockIn = dayjs(entry.clock_in);
+  const clockOut = dayjs(entry.clock_out);
+  const entryDate = dayjs(entry.clock_in).format('YYYY-MM-DD');
+
+  let bestMatch = null;
+  let bestOverlap = 0;
+
+  for (const meeting of meetings) {
+    if (meeting.is_cancelled) continue;
+    if (meeting.date !== entryDate) continue;
+
+    const meetingStart = dayjs(`${meeting.date} ${meeting.start_time}`);
+    const meetingEnd = dayjs(`${meeting.date} ${meeting.end_time}`);
+
+    const overlapStart = clockIn.isAfter(meetingStart) ? clockIn : meetingStart;
+    const overlapEnd = clockOut.isBefore(meetingEnd) ? clockOut : meetingEnd;
+
+    if (overlapEnd.isAfter(overlapStart)) {
+      const overlap = overlapEnd.diff(overlapStart, 'minute');
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestMatch = meeting;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
 // Calculate hours for a time entry within a meeting window
 function calculateMeetingHours(entry, meeting) {
   if (!entry.clock_out) return 0;
@@ -142,10 +176,23 @@ function calculateStudentAttendance(studentId, seasonId) {
 
     if (!entry.clock_out) continue;
 
+    // Resolve the meeting for this entry:
+    // 1. If linked meeting exists and is not cancelled, use it
+    // 2. If linked meeting is cancelled (or missing), try time-overlap matching
+    // 3. If no meeting_id stored, try time-overlap matching
+    // 4. If no match found, count as bonus/open hours
+    let meeting = null;
     if (entry.meeting_id) {
-      const meeting = meetings.find(m => m.id === entry.meeting_id);
-      if (!meeting || meeting.is_cancelled) continue;
+      const linkedMeeting = meetings.find(m => m.id === entry.meeting_id);
+      if (linkedMeeting && !linkedMeeting.is_cancelled) {
+        meeting = linkedMeeting;
+      }
+    }
+    if (!meeting) {
+      meeting = findOverlappingMeeting(entry, meetings);
+    }
 
+    if (meeting) {
       const hours = calculateMeetingHours(entry, meeting);
 
       if (meeting.is_mandatory) {
@@ -159,7 +206,7 @@ function calculateStudentAttendance(studentId, seasonId) {
         bonusHours += dtBonus;
       }
     } else {
-      // Open hours (no meeting associated) - count as bonus
+      // Open hours (no meeting matches) - count as bonus
       const clockIn = dayjs(entry.clock_in);
       const clockOut = dayjs(entry.clock_out);
       bonusHours += clockOut.diff(clockIn, 'minute') / 60;
@@ -238,7 +285,25 @@ router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
 
   const meetingDetails = meetings.map(meeting => {
     const isExempt = exemptions.includes(meeting.id);
-    const meetingEntries = entries.filter(e => e.meeting_id === meeting.id);
+    // Match entries by meeting_id OR by time overlap (for entries whose
+    // linked meeting was cancelled, or that were created before the meeting existed)
+    const meetingEntries = entries.filter(e => {
+      if (e.meeting_id === meeting.id) return true;
+      if (!e.clock_out) return false;
+      // Check if entry is unlinked or linked to a cancelled meeting
+      const linkedMeeting = e.meeting_id ? meetings.find(m => m.id === e.meeting_id) : null;
+      if (e.meeting_id && linkedMeeting && !linkedMeeting.is_cancelled) return false;
+      // Check time overlap with this meeting
+      const clockIn = dayjs(e.clock_in);
+      const clockOut = dayjs(e.clock_out);
+      const entryDate = dayjs(e.clock_in).format('YYYY-MM-DD');
+      if (meeting.date !== entryDate || meeting.is_cancelled) return false;
+      const meetingStart = dayjs(`${meeting.date} ${meeting.start_time}`);
+      const meetingEnd = dayjs(`${meeting.date} ${meeting.end_time}`);
+      const overlapStart = clockIn.isAfter(meetingStart) ? clockIn : meetingStart;
+      const overlapEnd = clockOut.isBefore(meetingEnd) ? clockOut : meetingEnd;
+      return overlapEnd.isAfter(overlapStart);
+    });
     const attended = meetingEntries.length > 0;
     const wasLate = meetingEntries.some(e => e.is_late);
     const wasAutoClockout = meetingEntries.some(e => e.is_auto_clockout);
