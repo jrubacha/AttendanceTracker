@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 
 function Reports() {
   const [seasons, setSeasons] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState('');
+  const [restoreStatus, setRestoreStatus] = useState(null);
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -25,6 +28,28 @@ function Reports() {
     window.open('/api/backup', '_blank');
   }
 
+  async function handleRestore(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm('This will replace your entire database with the uploaded file. A backup of the current database will be saved automatically. Continue?')) {
+      fileInputRef.current.value = '';
+      return;
+    }
+
+    setRestoring(true);
+    setRestoreStatus(null);
+    try {
+      const result = await api.restoreDatabase(file);
+      setRestoreStatus({ success: true, message: result.message });
+    } catch (err) {
+      setRestoreStatus({ success: false, message: err.message });
+    } finally {
+      setRestoring(false);
+      fileInputRef.current.value = '';
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-kiosk-text mb-6">Reports & Export</h1>
@@ -37,7 +62,7 @@ function Reports() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700">
           <h2 className="text-lg font-semibold text-kiosk-text mb-2">Summary CSV</h2>
           <p className="text-kiosk-muted text-sm mb-4">
@@ -69,6 +94,24 @@ function Reports() {
             className="bg-kiosk-warning text-black px-4 py-2 rounded-lg text-sm hover:bg-yellow-400 w-full font-medium">
             Download Database
           </button>
+        </div>
+
+        <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700">
+          <h2 className="text-lg font-semibold text-kiosk-text mb-2">Database Restore</h2>
+          <p className="text-kiosk-muted text-sm mb-4">
+            Upload a previously exported SQLite database file to restore from a backup.
+          </p>
+          <input ref={fileInputRef} type="file" accept=".sqlite,.db" onChange={handleRestore}
+            className="hidden" id="restore-file" />
+          <button onClick={() => fileInputRef.current?.click()} disabled={restoring}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-500 w-full font-medium disabled:opacity-50">
+            {restoring ? 'Restoring...' : 'Upload & Restore Database'}
+          </button>
+          {restoreStatus && (
+            <p className={`text-sm mt-3 ${restoreStatus.success ? 'text-green-400' : 'text-red-400'}`}>
+              {restoreStatus.message}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -89,4 +89,15 @@ export const api = {
 
   // Import
   importAttendance: (csv) => request('/import/attendance', { method: 'POST', body: { csv } }),
+
+  // Database restore
+  restoreDatabase: (file) => fetch(`${API_BASE}/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: file,
+  }).then(async res => {
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Restore failed');
+    return data;
+  }),
 };
