@@ -77,6 +77,10 @@ function calculateStudentAttendance(studentId, seasonId) {
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
   if (!season) return null;
 
+  const student = db.prepare('SELECT hours_adjustment, available_hours_adjustment FROM students WHERE id = ?').get(studentId);
+  const hoursAdj = student?.hours_adjustment || 0;
+  const availableAdj = student?.available_hours_adjustment || 0;
+
   // Get all meetings for the season
   const meetings = db.prepare(
     'SELECT * FROM meetings WHERE season_id = ? ORDER BY date, start_time'
@@ -146,9 +150,13 @@ function calculateStudentAttendance(studentId, seasonId) {
     }
   }
 
-  const totalCredited = mandatoryHoursAttended + bonusHours;
-  const percentage = mandatoryHoursAvailable > 0
-    ? ((mandatoryHoursAttended + bonusHours) / mandatoryHoursAvailable) * 100
+  // Apply manual adjustments
+  const adjustedHours = mandatoryHoursAttended + bonusHours + hoursAdj;
+  const adjustedAvailable = mandatoryHoursAvailable + availableAdj;
+
+  const totalCredited = adjustedHours;
+  const percentage = adjustedAvailable > 0
+    ? (adjustedHours / adjustedAvailable) * 100
     : 0;
 
   return {
@@ -158,6 +166,8 @@ function calculateStudentAttendance(studentId, seasonId) {
     bonusHours: Math.round(bonusHours * 100) / 100,
     totalCredited: Math.round(totalCredited * 100) / 100,
     percentage: Math.round(percentage * 10) / 10,
+    hoursAdjustment: hoursAdj,
+    availableHoursAdjustment: availableAdj,
     autoClockoutCount,
     lateCount,
     exemptionCount

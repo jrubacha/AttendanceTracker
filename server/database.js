@@ -98,6 +98,8 @@ async function initialize() {
       pin_last4 TEXT NOT NULL,
       is_archived INTEGER DEFAULT 0,
       notes TEXT DEFAULT '',
+      hours_adjustment REAL DEFAULT 0,
+      available_hours_adjustment REAL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -191,6 +193,14 @@ async function initialize() {
       value TEXT NOT NULL
     );
   `);
+
+  // Migrations for existing databases
+  try {
+    db.exec('ALTER TABLE students ADD COLUMN hours_adjustment REAL DEFAULT 0');
+  } catch { /* column already exists */ }
+  try {
+    db.exec('ALTER TABLE students ADD COLUMN available_hours_adjustment REAL DEFAULT 0');
+  } catch { /* column already exists */ }
 }
 
 module.exports = { db, initialize, DB_PATH, DATA_DIR };

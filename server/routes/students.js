@@ -50,16 +50,16 @@ router.get('/', requireAdmin, (req, res) => {
   const includeArchived = req.query.includeArchived === 'true';
   let students;
   if (includeArchived) {
-    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, created_at FROM students ORDER BY name').all();
+    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students ORDER BY name').all();
   } else {
-    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, created_at FROM students WHERE is_archived = 0 ORDER BY name').all();
+    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students WHERE is_archived = 0 ORDER BY name').all();
   }
   res.json({ students });
 });
 
 // Get single student (admin)
 router.get('/:id', requireAdmin, (req, res) => {
-  const student = db.prepare('SELECT id, name, pin_last4, is_archived, notes, created_at FROM students WHERE id = ?').get(req.params.id);
+  const student = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students WHERE id = ?').get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: 'Student not found' });
   }
@@ -101,18 +101,20 @@ router.post('/', requireAdmin, (req, res) => {
 
 // Update student (admin)
 router.put('/:id', requireAdmin, (req, res) => {
-  const { name, notes, is_archived } = req.body;
+  const { name, notes, is_archived, hours_adjustment, available_hours_adjustment } = req.body;
   const student = db.prepare('SELECT * FROM students WHERE id = ?').get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: 'Student not found' });
   }
 
   db.prepare(
-    'UPDATE students SET name = ?, notes = ?, is_archived = ?, updated_at = datetime(\'now\') WHERE id = ?'
+    'UPDATE students SET name = ?, notes = ?, is_archived = ?, hours_adjustment = ?, available_hours_adjustment = ?, updated_at = datetime(\'now\') WHERE id = ?'
   ).run(
     name !== undefined ? name.trim() : student.name,
     notes !== undefined ? notes : student.notes,
     is_archived !== undefined ? (is_archived ? 1 : 0) : student.is_archived,
+    hours_adjustment !== undefined ? parseFloat(hours_adjustment) || 0 : (student.hours_adjustment || 0),
+    available_hours_adjustment !== undefined ? parseFloat(available_hours_adjustment) || 0 : (student.available_hours_adjustment || 0),
     req.params.id
   );
 
