@@ -13,7 +13,8 @@ function Schedule() {
   const [eventData, setEventData] = useState({ date: '', start_time: '18:00', end_time: '21:00', name: '', is_mandatory: true });
   const [doubleTimeRules, setDoubleTimeRules] = useState([]);
   const [showAddDT, setShowAddDT] = useState(false);
-  const [dtData, setDtData] = useState({ day_of_week: 6, start_time: '09:00', end_time: '11:00', multiplier: 2.0, condition_type: '', condition_value: '' });
+  const [dtMode, setDtMode] = useState('day_of_week'); // 'day_of_week' or 'specific_dates'
+  const [dtData, setDtData] = useState({ day_of_week: 6, start_time: '09:00', end_time: '11:00', multiplier: 2.0, condition_type: '', condition_value: '', specific_dates: '' });
   const [message, setMessage] = useState('');
 
   useEffect(() => { loadSeasons(); }, []);
@@ -98,8 +99,18 @@ function Schedule() {
   async function handleAddDoubleTime(e) {
     e.preventDefault();
     try {
-      await api.createDoubleTimeRule({ season_id: parseInt(selectedSeason), ...dtData });
+      const payload = { season_id: parseInt(selectedSeason), start_time: dtData.start_time, end_time: dtData.end_time, multiplier: dtData.multiplier, condition_type: dtData.condition_type, condition_value: dtData.condition_value };
+      if (dtMode === 'specific_dates') {
+        payload.specific_dates = dtData.specific_dates;
+        payload.day_of_week = null;
+      } else {
+        payload.day_of_week = dtData.day_of_week;
+        payload.specific_dates = '';
+      }
+      await api.createDoubleTimeRule(payload);
       setShowAddDT(false);
+      setDtData({ day_of_week: 6, start_time: '09:00', end_time: '11:00', multiplier: 2.0, condition_type: '', condition_value: '', specific_dates: '' });
+      setDtMode('day_of_week');
       loadDoubleTimeRules();
     } catch (err) { setMessage(err.message); }
   }
@@ -174,27 +185,45 @@ function Schedule() {
           <button onClick={() => setShowAddDT(!showAddDT)} className="text-sm text-kiosk-accent hover:underline">+ Add Rule</button>
         </div>
         {showAddDT && (
-          <form onSubmit={handleAddDoubleTime} className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4 p-4 bg-kiosk-bg rounded-lg">
-            <select value={dtData.day_of_week} onChange={e => setDtData({...dtData, day_of_week: parseInt(e.target.value)})}
-              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
-              {DAY_NAMES.map((name, dow) => <option key={dow} value={dow}>{name}</option>)}
-            </select>
-            <input type="time" value={dtData.start_time} onChange={e => setDtData({...dtData, start_time: e.target.value})}
-              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
-            <input type="time" value={dtData.end_time} onChange={e => setDtData({...dtData, end_time: e.target.value})}
-              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
-            <input type="number" step="0.5" min="1" value={dtData.multiplier} onChange={e => setDtData({...dtData, multiplier: parseFloat(e.target.value)})}
-              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" placeholder="Multiplier" />
-            <select value={dtData.condition_type} onChange={e => setDtData({...dtData, condition_type: e.target.value})}
-              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
-              <option value="">No condition</option>
-              <option value="clocked_in_before">Must clock in before</option>
-            </select>
-            {dtData.condition_type && (
-              <input type="time" value={dtData.condition_value} onChange={e => setDtData({...dtData, condition_value: e.target.value})}
+          <form onSubmit={handleAddDoubleTime} className="mb-4 p-4 bg-kiosk-bg rounded-lg space-y-3">
+            <div className="flex gap-3 items-center">
+              <label className="flex items-center gap-1 text-kiosk-muted text-sm">
+                <input type="radio" name="dtMode" value="day_of_week" checked={dtMode === 'day_of_week'} onChange={() => setDtMode('day_of_week')} className="accent-kiosk-accent" />
+                Recurring Day
+              </label>
+              <label className="flex items-center gap-1 text-kiosk-muted text-sm">
+                <input type="radio" name="dtMode" value="specific_dates" checked={dtMode === 'specific_dates'} onChange={() => setDtMode('specific_dates')} className="accent-kiosk-accent" />
+                Specific Date(s)
+              </label>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {dtMode === 'day_of_week' ? (
+                <select value={dtData.day_of_week} onChange={e => setDtData({...dtData, day_of_week: parseInt(e.target.value)})}
+                  className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
+                  {DAY_NAMES.map((name, dow) => <option key={dow} value={dow}>{name}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={dtData.specific_dates} onChange={e => setDtData({...dtData, specific_dates: e.target.value})}
+                  placeholder="YYYY-MM-DD, YYYY-MM-DD"
+                  className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none col-span-2 md:col-span-1" />
+              )}
+              <input type="time" value={dtData.start_time} onChange={e => setDtData({...dtData, start_time: e.target.value})}
                 className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
-            )}
-            <button type="submit" className="bg-kiosk-success text-white px-4 py-1.5 rounded text-sm col-span-2 md:col-span-1">Add</button>
+              <input type="time" value={dtData.end_time} onChange={e => setDtData({...dtData, end_time: e.target.value})}
+                className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
+              <input type="number" step="0.5" min="1" value={dtData.multiplier} onChange={e => setDtData({...dtData, multiplier: parseFloat(e.target.value)})}
+                className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" placeholder="Multiplier" />
+              <select value={dtData.condition_type} onChange={e => setDtData({...dtData, condition_type: e.target.value})}
+                className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
+                <option value="">No condition</option>
+                <option value="clocked_in_before">Must clock in before</option>
+              </select>
+              {dtData.condition_type && (
+                <input type="time" value={dtData.condition_value} onChange={e => setDtData({...dtData, condition_value: e.target.value})}
+                  className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
+              )}
+              <button type="submit" className="bg-kiosk-success text-white px-4 py-1.5 rounded text-sm col-span-2 md:col-span-1">Add</button>
+            </div>
           </form>
         )}
         {doubleTimeRules.length === 0 ? (
@@ -204,7 +233,7 @@ function Schedule() {
             {doubleTimeRules.map(rule => (
               <div key={rule.id} className="flex items-center justify-between bg-kiosk-bg rounded-lg px-4 py-2">
                 <span className="text-kiosk-text text-sm">
-                  {DAY_NAMES[rule.day_of_week] || 'Any'} {rule.start_time}–{rule.end_time} ({rule.multiplier}x)
+                  {rule.specific_dates ? rule.specific_dates : (DAY_NAMES[rule.day_of_week] || 'Any day')} {rule.start_time}–{rule.end_time} ({rule.multiplier}x)
                   {rule.condition_type === 'clocked_in_before' && ` if clocked in before ${rule.condition_value}`}
                 </span>
                 <button onClick={() => handleDeleteDTRule(rule.id)} className="text-red-400 text-xs hover:text-red-300">Delete</button>

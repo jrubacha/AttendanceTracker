@@ -19,10 +19,15 @@ function StudentDetail() {
   const [editHoursAdj, setEditHoursAdj] = useState(0);
   const [editAvailableAdj, setEditAvailableAdj] = useState(0);
   const [newPin, setNewPin] = useState(null);
+  const [showSetPin, setShowSetPin] = useState(false);
+  const [customPin, setCustomPin] = useState('');
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [manualClockIn, setManualClockIn] = useState('');
   const [manualClockOut, setManualClockOut] = useState('');
   const [manualMeeting, setManualMeeting] = useState('');
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [editClockIn, setEditClockIn] = useState('');
+  const [editClockOut, setEditClockOut] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -85,6 +90,17 @@ function StudentDetail() {
     } catch (e) { setError(e.message); }
   }
 
+  async function handleSetCustomPin(e) {
+    e.preventDefault();
+    try {
+      const { pin } = await api.regeneratePin(id, customPin);
+      setNewPin(pin);
+      setCustomPin('');
+      setShowSetPin(false);
+      loadStudent();
+    } catch (e) { setError(e.message); }
+  }
+
   async function handleToggleExemption(meetingId) {
     try {
       await api.toggleExemption(parseInt(id), meetingId);
@@ -105,6 +121,24 @@ function StudentDetail() {
       setManualClockIn('');
       setManualClockOut('');
       setManualMeeting('');
+      loadReport();
+    } catch (e) { setError(e.message); }
+  }
+
+  function startEditEntry(entry) {
+    setEditingEntry(entry.id);
+    // Convert "YYYY-MM-DD HH:mm:ss" to "YYYY-MM-DDTHH:mm" for datetime-local input
+    setEditClockIn(entry.clock_in ? entry.clock_in.replace(' ', 'T').slice(0, 16) : '');
+    setEditClockOut(entry.clock_out ? entry.clock_out.replace(' ', 'T').slice(0, 16) : '');
+  }
+
+  async function handleSaveEntry(entryId) {
+    try {
+      await api.updateEntry(entryId, {
+        clock_in: editClockIn.replace('T', ' ') + ':00',
+        clock_out: editClockOut ? editClockOut.replace('T', ' ') + ':00' : null,
+      });
+      setEditingEntry(null);
       loadReport();
     } catch (e) { setError(e.message); }
   }
@@ -175,10 +209,24 @@ function StudentDetail() {
               Edit
             </button>
             <button onClick={handleRegenPin} className="text-xs px-3 py-1.5 border border-slate-600 rounded text-kiosk-muted hover:text-kiosk-text">
-              New PIN
+              Random PIN
+            </button>
+            <button onClick={() => setShowSetPin(!showSetPin)} className="text-xs px-3 py-1.5 border border-slate-600 rounded text-kiosk-muted hover:text-kiosk-text">
+              Set PIN
             </button>
           </div>
         </div>
+        {showSetPin && (
+          <form onSubmit={handleSetCustomPin} className="mt-4 flex items-center gap-3">
+            <input type="text" value={customPin} onChange={e => setCustomPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="4-digit PIN" maxLength={4} pattern="\d{4}"
+              className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-lg font-mono w-32 focus:outline-none" required />
+            <button type="submit" disabled={customPin.length !== 4}
+              className="bg-kiosk-success text-white px-4 py-2 rounded text-sm disabled:opacity-50">Assign PIN</button>
+            <button type="button" onClick={() => { setShowSetPin(false); setCustomPin(''); }}
+              className="text-kiosk-muted text-sm">Cancel</button>
+          </form>
+        )}
         {newPin && (
           <div className="mt-4 bg-green-500/20 text-green-400 p-3 rounded-lg">
             New PIN: <span className="text-2xl font-mono font-bold">{newPin}</span>
@@ -330,16 +378,43 @@ function StudentDetail() {
             <tbody>
               {entries.map(e => (
                 <tr key={e.id} className="border-b border-slate-800">
-                  <td className="p-2 text-kiosk-text">{new Date(e.clock_in).toLocaleString()}</td>
-                  <td className="p-2 text-kiosk-text">{e.clock_out ? new Date(e.clock_out).toLocaleString() : '—'}</td>
-                  <td className="p-2 text-center">
-                    {e.is_late ? <span className="text-yellow-400 text-xs mr-1">Late</span> : null}
-                    {e.is_auto_clockout ? <span className="text-orange-400 text-xs">Auto-CO</span> : null}
-                  </td>
-                  <td className="p-2 text-right">
-                    <button onClick={() => handleDeleteEntry(e.id)}
-                      className="text-xs text-red-400 hover:text-red-300">Delete</button>
-                  </td>
+                  {editingEntry === e.id ? (
+                    <>
+                      <td className="p-2">
+                        <input type="datetime-local" value={editClockIn} onChange={ev => setEditClockIn(ev.target.value)}
+                          className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1 text-kiosk-text text-xs focus:outline-none w-full" />
+                      </td>
+                      <td className="p-2">
+                        <input type="datetime-local" value={editClockOut} onChange={ev => setEditClockOut(ev.target.value)}
+                          className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1 text-kiosk-text text-xs focus:outline-none w-full" />
+                      </td>
+                      <td className="p-2 text-center">
+                        {e.is_late ? <span className="text-yellow-400 text-xs mr-1">Late</span> : null}
+                        {e.is_auto_clockout ? <span className="text-orange-400 text-xs">Auto-CO</span> : null}
+                      </td>
+                      <td className="p-2 text-right space-x-2">
+                        <button onClick={() => handleSaveEntry(e.id)}
+                          className="text-xs text-green-400 hover:text-green-300">Save</button>
+                        <button onClick={() => setEditingEntry(null)}
+                          className="text-xs text-kiosk-muted hover:text-kiosk-text">Cancel</button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-2 text-kiosk-text">{new Date(e.clock_in).toLocaleString()}</td>
+                      <td className="p-2 text-kiosk-text">{e.clock_out ? new Date(e.clock_out).toLocaleString() : '—'}</td>
+                      <td className="p-2 text-center">
+                        {e.is_late ? <span className="text-yellow-400 text-xs mr-1">Late</span> : null}
+                        {e.is_auto_clockout ? <span className="text-orange-400 text-xs">Auto-CO</span> : null}
+                      </td>
+                      <td className="p-2 text-right space-x-2">
+                        <button onClick={() => startEditEntry(e)}
+                          className="text-xs text-kiosk-accent hover:text-blue-300">Edit</button>
+                        <button onClick={() => handleDeleteEntry(e.id)}
+                          className="text-xs text-red-400 hover:text-red-300">Delete</button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

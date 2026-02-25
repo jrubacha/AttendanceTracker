@@ -14,14 +14,14 @@ router.get('/:seasonId', requireAdmin, (req, res) => {
 
 // Create double time rule
 router.post('/', requireAdmin, (req, res) => {
-  const { season_id, day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value } = req.body;
+  const { season_id, day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value, specific_dates } = req.body;
   if (!season_id || !start_time || !end_time) {
     return res.status(400).json({ error: 'Season, start_time, and end_time required' });
   }
 
   const result = db.prepare(
-    'INSERT INTO double_time_rules (season_id, day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(season_id, day_of_week ?? null, meeting_id ?? null, start_time, end_time, multiplier || 2.0, condition_type || '', condition_value || '');
+    'INSERT INTO double_time_rules (season_id, day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value, specific_dates) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(season_id, day_of_week ?? null, meeting_id ?? null, start_time, end_time, multiplier || 2.0, condition_type || '', condition_value || '', specific_dates || '');
 
   res.json({ rule: { id: result.lastInsertRowid } });
 });
@@ -31,9 +31,9 @@ router.put('/:id', requireAdmin, (req, res) => {
   const rule = db.prepare('SELECT * FROM double_time_rules WHERE id = ?').get(req.params.id);
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
-  const { day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value } = req.body;
+  const { day_of_week, meeting_id, start_time, end_time, multiplier, condition_type, condition_value, specific_dates } = req.body;
   db.prepare(
-    'UPDATE double_time_rules SET day_of_week = ?, meeting_id = ?, start_time = ?, end_time = ?, multiplier = ?, condition_type = ?, condition_value = ? WHERE id = ?'
+    'UPDATE double_time_rules SET day_of_week = ?, meeting_id = ?, start_time = ?, end_time = ?, multiplier = ?, condition_type = ?, condition_value = ?, specific_dates = ? WHERE id = ?'
   ).run(
     day_of_week !== undefined ? day_of_week : rule.day_of_week,
     meeting_id !== undefined ? meeting_id : rule.meeting_id,
@@ -42,6 +42,7 @@ router.put('/:id', requireAdmin, (req, res) => {
     multiplier || rule.multiplier,
     condition_type !== undefined ? condition_type : rule.condition_type,
     condition_value !== undefined ? condition_value : rule.condition_value,
+    specific_dates !== undefined ? specific_dates : (rule.specific_dates || ''),
     req.params.id
   );
 
