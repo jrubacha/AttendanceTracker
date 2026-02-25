@@ -201,6 +201,9 @@ async function initialize() {
   try {
     db.exec('ALTER TABLE students ADD COLUMN available_hours_adjustment REAL DEFAULT 0');
   } catch { /* column already exists */ }
+  try {
+    db.exec("ALTER TABLE double_time_rules ADD COLUMN specific_dates TEXT DEFAULT ''");
+  } catch { /* column already exists */ }
 }
 
 module.exports = { db, initialize, DB_PATH, DATA_DIR };

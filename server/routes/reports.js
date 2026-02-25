@@ -50,7 +50,13 @@ function applyDoubleTime(entry, meeting, seasonId) {
 
   for (const rule of rules) {
     // Check if rule applies to this day
-    if (rule.day_of_week !== null && rule.day_of_week !== dow) continue;
+    if (rule.specific_dates) {
+      // Rule targets specific dates - check if entry date matches any
+      const dates = rule.specific_dates.split(',').map(d => d.trim());
+      if (!dates.includes(entryDate)) continue;
+    } else if (rule.day_of_week !== null && rule.day_of_week !== dow) {
+      continue;
+    }
     if (rule.meeting_id !== null && rule.meeting_id !== meeting.id) continue;
 
     // Check condition
@@ -142,12 +148,12 @@ function calculateStudentAttendance(studentId, seasonId) {
 
       const hours = calculateMeetingHours(entry, meeting);
 
-      if (meeting.is_mandatory && !exemptions.includes(meeting.id)) {
+      if (meeting.is_mandatory) {
         mandatoryHoursAttended += hours;
         // Apply double time
         const dtBonus = applyDoubleTime(entry, meeting, seasonId);
         mandatoryHoursAttended += dtBonus;
-      } else if (!meeting.is_mandatory) {
+      } else {
         bonusHours += hours;
         const dtBonus = applyDoubleTime(entry, meeting, seasonId);
         bonusHours += dtBonus;
