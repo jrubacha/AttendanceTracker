@@ -16,6 +16,8 @@ function StudentDetail() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editHoursAdj, setEditHoursAdj] = useState(0);
+  const [editAvailableAdj, setEditAvailableAdj] = useState(0);
   const [newPin, setNewPin] = useState(null);
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [manualClockIn, setManualClockIn] = useState('');
@@ -38,6 +40,8 @@ function StudentDetail() {
       setStudent(s);
       setEditName(s.name);
       setEditNotes(s.notes || '');
+      setEditHoursAdj(s.hours_adjustment || 0);
+      setEditAvailableAdj(s.available_hours_adjustment || 0);
     } catch { navigate('/admin/students'); }
   }
 
@@ -62,9 +66,15 @@ function StudentDetail() {
 
   async function handleSaveEdit() {
     try {
-      await api.updateStudent(id, { name: editName, notes: editNotes });
+      await api.updateStudent(id, {
+        name: editName,
+        notes: editNotes,
+        hours_adjustment: parseFloat(editHoursAdj) || 0,
+        available_hours_adjustment: parseFloat(editAvailableAdj) || 0,
+      });
       setEditing(false);
       loadStudent();
+      if (selectedSeason) loadReport();
     } catch (e) { setError(e.message); }
   }
 
@@ -127,6 +137,19 @@ function StudentDetail() {
                   className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-xl font-bold focus:outline-none" />
                 <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Notes"
                   className="block bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none w-full" />
+                <div className="flex flex-wrap gap-3">
+                  <div>
+                    <label className="text-kiosk-muted text-xs block mb-1">Hours Adjustment</label>
+                    <input type="number" step="0.5" value={editHoursAdj} onChange={e => setEditHoursAdj(e.target.value)}
+                      className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none w-32" />
+                  </div>
+                  <div>
+                    <label className="text-kiosk-muted text-xs block mb-1">Available Hours Adjustment</label>
+                    <input type="number" step="0.5" value={editAvailableAdj} onChange={e => setEditAvailableAdj(e.target.value)}
+                      className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none w-32" />
+                  </div>
+                </div>
+                <p className="text-kiosk-muted text-xs">Adjustments add to (or subtract from) the calculated totals for this student.</p>
                 <div className="flex gap-2">
                   <button onClick={handleSaveEdit} className="bg-kiosk-success text-white px-4 py-1 rounded text-sm">Save</button>
                   <button onClick={() => setEditing(false)} className="text-kiosk-muted text-sm">Cancel</button>
@@ -200,24 +223,33 @@ function StudentDetail() {
 
       {/* Attendance summary */}
       {report && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-            <div className="text-kiosk-muted text-xs">Attendance</div>
-            <div className="text-2xl font-bold text-kiosk-text">{report.percentage}%</div>
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
+              <div className="text-kiosk-muted text-xs">Attendance</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.percentage}%</div>
+            </div>
+            <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
+              <div className="text-kiosk-muted text-xs">Hours (Mandatory)</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.mandatoryHoursAttended} / {report.mandatoryHoursAvailable}</div>
+            </div>
+            <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
+              <div className="text-kiosk-muted text-xs">Bonus Hours</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.bonusHours}</div>
+            </div>
+            <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
+              <div className="text-kiosk-muted text-xs">Late / Auto-CO</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.lateCount} / {report.autoClockoutCount}</div>
+            </div>
           </div>
-          <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-            <div className="text-kiosk-muted text-xs">Hours (Mandatory)</div>
-            <div className="text-2xl font-bold text-kiosk-text">{report.mandatoryHoursAttended} / {report.mandatoryHoursAvailable}</div>
-          </div>
-          <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-            <div className="text-kiosk-muted text-xs">Bonus Hours</div>
-            <div className="text-2xl font-bold text-kiosk-text">{report.bonusHours}</div>
-          </div>
-          <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-            <div className="text-kiosk-muted text-xs">Late / Auto-CO</div>
-            <div className="text-2xl font-bold text-kiosk-text">{report.lateCount} / {report.autoClockoutCount}</div>
-          </div>
-        </div>
+          {(report.hoursAdjustment !== 0 || report.availableHoursAdjustment !== 0) && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-3 rounded-lg mb-6 text-xs">
+              Manual adjustments active:
+              {report.hoursAdjustment !== 0 && <span className="ml-2">Hours {report.hoursAdjustment > 0 ? '+' : ''}{report.hoursAdjustment}h</span>}
+              {report.availableHoursAdjustment !== 0 && <span className="ml-2">Available {report.availableHoursAdjustment > 0 ? '+' : ''}{report.availableHoursAdjustment}h</span>}
+            </div>
+          )}
+        </>
       )}
 
       {/* Meeting attendance list */}
