@@ -13,6 +13,9 @@ function Dashboard() {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [filter, setFilter] = useState('all');
+  const [dateRangeEnabled, setDateRangeEnabled] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     loadSeasons();
@@ -33,15 +36,28 @@ function Dashboard() {
     setLoading(false);
   }
 
-  async function loadDashboard(seasonId) {
+  async function loadDashboard(seasonId, dateRange) {
     setLoading(true);
     try {
-      const data = await api.getDashboard(seasonId);
+      const data = await api.getDashboard(seasonId, dateRange);
       setReport(data.report);
       setThresholds(data.thresholds);
       setSeason(data.season);
     } catch { /* ignore */ }
     setLoading(false);
+  }
+
+  function applyDateRange() {
+    if (startDate && endDate && selectedSeason) {
+      loadDashboard(selectedSeason, { startDate, endDate });
+    }
+  }
+
+  function clearDateRange() {
+    setDateRangeEnabled(false);
+    setStartDate('');
+    setEndDate('');
+    if (selectedSeason) loadDashboard(selectedSeason);
   }
 
   function sort(data) {
@@ -99,6 +115,42 @@ function Dashboard() {
             <option value="above80">80%+</option>
           </select>
         </div>
+      </div>
+
+      <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700 mb-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 text-sm text-kiosk-text cursor-pointer">
+            <input type="checkbox" checked={dateRangeEnabled}
+              onChange={e => {
+                setDateRangeEnabled(e.target.checked);
+                if (!e.target.checked) clearDateRange();
+              }}
+              className="rounded border-slate-600 bg-slate-700 text-kiosk-accent focus:ring-kiosk-accent" />
+            Custom Date Range
+          </label>
+          {dateRangeEnabled && (
+            <>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-1.5 text-kiosk-text text-sm focus:outline-none focus:border-kiosk-accent" />
+              <span className="text-kiosk-muted text-sm">to</span>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-1.5 text-kiosk-text text-sm focus:outline-none focus:border-kiosk-accent" />
+              <button onClick={applyDateRange} disabled={!startDate || !endDate}
+                className="bg-kiosk-accent text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                Apply
+              </button>
+              <button onClick={clearDateRange}
+                className="text-kiosk-muted hover:text-kiosk-text text-sm underline">
+                Reset
+              </button>
+            </>
+          )}
+        </div>
+        {dateRangeEnabled && startDate && endDate && (
+          <p className="text-xs text-kiosk-accent mt-2">
+            Showing attendance from {startDate} to {endDate}
+          </p>
+        )}
       </div>
 
       {season && season.type === 'off_season' && (

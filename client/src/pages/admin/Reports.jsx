@@ -6,6 +6,8 @@ function Reports() {
   const [selectedSeason, setSelectedSeason] = useState('');
   const [restoreStatus, setRestoreStatus] = useState(null);
   const [restoring, setRestoring] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -20,7 +22,8 @@ function Reports() {
   }, []);
 
   function handleExport(detailed) {
-    const url = api.exportCsv(selectedSeason, detailed);
+    const dateRange = (startDate && endDate) ? { startDate, endDate } : undefined;
+    const url = api.exportCsv(selectedSeason, detailed, dateRange);
     window.open(url, '_blank');
   }
 
@@ -54,13 +57,36 @@ function Reports() {
     <div>
       <h1 className="text-2xl font-bold text-kiosk-text mb-6">Reports & Export</h1>
 
-      <div className="mb-6">
-        <label className="text-kiosk-muted text-sm block mb-1">Season</label>
-        <select value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)}
-          className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
-          {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+      <div className="mb-6 flex flex-wrap items-end gap-4">
+        <div>
+          <label className="text-kiosk-muted text-sm block mb-1">Season</label>
+          <select value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)}
+            className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
+            {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-kiosk-muted text-sm block mb-1">Start Date (optional)</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none focus:border-kiosk-accent" />
+        </div>
+        <div>
+          <label className="text-kiosk-muted text-sm block mb-1">End Date (optional)</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none focus:border-kiosk-accent" />
+        </div>
+        {(startDate || endDate) && (
+          <button onClick={() => { setStartDate(''); setEndDate(''); }}
+            className="text-kiosk-muted hover:text-kiosk-text text-sm underline pb-2">
+            Clear dates
+          </button>
+        )}
       </div>
+      {startDate && endDate && (
+        <p className="text-xs text-kiosk-accent mb-4">
+          Exports will be filtered to {startDate} through {endDate}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700">
