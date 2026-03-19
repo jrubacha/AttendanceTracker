@@ -83,9 +83,27 @@ export const api = {
   deleteDoubleTimeRule: (id) => request(`/double-time/${id}`, { method: 'DELETE' }),
 
   // Reports
-  getDashboard: (seasonId) => request(`/reports/dashboard/${seasonId}`),
-  getStudentReport: (studentId, seasonId) => request(`/reports/student/${studentId}/${seasonId}`),
-  exportCsv: (seasonId, detailed = false) => `${API_BASE}/reports/export/${seasonId}?detailed=${detailed}`,
+  getDashboard: (seasonId, dateRange) => {
+    let url = `/reports/dashboard/${seasonId}`;
+    if (dateRange?.startDate && dateRange?.endDate) {
+      url += `?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+    }
+    return request(url);
+  },
+  getStudentReport: (studentId, seasonId, dateRange) => {
+    let url = `/reports/student/${studentId}/${seasonId}`;
+    if (dateRange?.startDate && dateRange?.endDate) {
+      url += `?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+    }
+    return request(url);
+  },
+  exportCsv: (seasonId, detailed = false, dateRange) => {
+    let url = `${API_BASE}/reports/export/${seasonId}?detailed=${detailed}`;
+    if (dateRange?.startDate && dateRange?.endDate) {
+      url += `&startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+    }
+    return url;
+  },
 
   // Import
   importAttendance: (csv) => request('/import/attendance', { method: 'POST', body: { csv } }),

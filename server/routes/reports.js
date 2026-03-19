@@ -124,8 +124,9 @@ function applyDoubleTime(entry, meeting, seasonId) {
   return bonusHours;
 }
 
-// Calculate attendance for a single student in a season
-function calculateStudentAttendance(studentId, seasonId) {
+// Calculate attendance for a single student in a season.
+// Optional dateRange { startDate, endDate } overrides the season date window.
+function calculateStudentAttendance(studentId, seasonId, dateRange) {
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
   if (!season) return null;
 
@@ -133,17 +134,23 @@ function calculateStudentAttendance(studentId, seasonId) {
   const hoursAdj = student?.hours_adjustment || 0;
   const availableAdj = student?.available_hours_adjustment || 0;
 
-  // Get all meetings for the season
-  const meetings = db.prepare(
-    'SELECT * FROM meetings WHERE season_id = ? ORDER BY date, start_time'
-  ).all(seasonId);
+  // Use custom date range if provided, otherwise use full season
+  const rangeStart = dateRange?.startDate || season.start_date;
+  const rangeEnd = dateRange?.endDate || season.end_date;
 
-  // Get exemptions for this student
-  const exemptions = db.prepare(
+  // Get all meetings for the season within the date range
+  const meetings = db.prepare(
+    'SELECT * FROM meetings WHERE season_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time'
+  ).all(seasonId, rangeStart, rangeEnd);
+
+  // Get exemptions for this student (only for meetings in range)
+  const allExemptions = db.prepare(
     'SELECT meeting_id FROM exemptions WHERE student_id = ?'
   ).all(studentId).map(e => e.meeting_id);
+  const meetingIds = new Set(meetings.map(m => m.id));
+  const exemptions = allExemptions.filter(id => meetingIds.has(id));
 
-  // Get all time entries for this student in the season date range
+  // Get all time entries for this student in the date range
   const entries = db.prepare(`
     SELECT te.*, m.date as meeting_date, m.start_time as meeting_start, m.end_time as meeting_end,
            m.is_mandatory as meeting_is_mandatory, m.is_cancelled as meeting_is_cancelled
@@ -151,7 +158,7 @@ function calculateStudentAttendance(studentId, seasonId) {
     LEFT JOIN meetings m ON te.meeting_id = m.id
     WHERE te.student_id = ? AND te.clock_in >= ? AND te.clock_in <= ?
     ORDER BY te.clock_in
-  `).all(studentId, season.start_date, season.end_date + ' 23:59:59');
+  `).all(studentId, rangeStart, rangeEnd + ' 23:59:59');
 
   let mandatoryHoursAvailable = 0;
   let mandatoryHoursAttended = 0;
@@ -247,13 +254,17 @@ function calculateStudentAttendance(studentId, seasonId) {
 }
 
 // Dashboard report - all students
+// Supports optional ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD query params
 router.get('/dashboard/:seasonId', requireAdmin, (req, res) => {
   const students = db.prepare('SELECT id, name, pin_last4, is_archived FROM students WHERE is_archived = 0 ORDER BY name').all();
   const thresholds = db.prepare('SELECT * FROM thresholds WHERE season_id = ? ORDER BY percentage DESC').all(req.params.seasonId);
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(req.params.seasonId);
 
+  const { startDate, endDate } = req.query;
+  const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
+
   const report = students.map(student => {
-    const attendance = calculateStudentAttendance(student.id, parseInt(req.params.seasonId));
+    const attendance = calculateStudentAttendance(student.id, parseInt(req.params.seasonId), dateRange);
     let thresholdColor = '#ef4444'; // red default
     let thresholdName = 'Below minimum';
     for (const t of thresholds) {
@@ -282,15 +293,20 @@ router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
   if (!student) return res.status(404).json({ error: 'Student not found' });
 
   const seasonId = parseInt(req.params.seasonId);
-  const attendance = calculateStudentAttendance(student.id, seasonId);
+  const { startDate, endDate } = req.query;
+  const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
+  const attendance = calculateStudentAttendance(student.id, seasonId, dateRange);
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
 
-  // Get all meetings with attendance status
-  const meetings = db.prepare('SELECT * FROM meetings WHERE season_id = ? ORDER BY date, start_time').all(seasonId);
+  const rangeStart = dateRange?.startDate || season.start_date;
+  const rangeEnd = dateRange?.endDate || season.end_date;
+
+  // Get all meetings with attendance status (filtered by date range if provided)
+  const meetings = db.prepare('SELECT * FROM meetings WHERE season_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time').all(seasonId, rangeStart, rangeEnd);
   const exemptions = db.prepare('SELECT meeting_id FROM exemptions WHERE student_id = ?').all(student.id).map(e => e.meeting_id);
   const entries = db.prepare(`
     SELECT * FROM time_entries WHERE student_id = ? AND clock_in >= ? AND clock_in <= ? ORDER BY clock_in
-  `).all(student.id, season.start_date, season.end_date + ' 23:59:59');
+  `).all(student.id, rangeStart, rangeEnd + ' 23:59:59');
 
   const meetingDetails = meetings.map(meeting => {
     const isExempt = exemptions.includes(meeting.id);
@@ -340,11 +356,15 @@ router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
 });
 
 // CSV export
+// Supports optional ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD query params
 router.get('/export/:seasonId', requireAdmin, (req, res) => {
-  const { detailed } = req.query;
+  const { detailed, startDate, endDate } = req.query;
   const students = db.prepare('SELECT id, name, pin_last4 FROM students WHERE is_archived = 0 ORDER BY name').all();
   const seasonId = parseInt(req.params.seasonId);
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
+  const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
+  const rangeStart = dateRange?.startDate || season.start_date;
+  const rangeEnd = dateRange?.endDate || season.end_date;
 
   if (detailed === 'true') {
     // Detailed export - every clock-in/out entry
@@ -357,7 +377,7 @@ router.get('/export/:seasonId', requireAdmin, (req, res) => {
         LEFT JOIN meetings m ON te.meeting_id = m.id
         WHERE te.student_id = ? AND te.clock_in >= ? AND te.clock_in <= ?
         ORDER BY te.clock_in
-      `).all(student.id, season.start_date, season.end_date + ' 23:59:59');
+      `).all(student.id, rangeStart, rangeEnd + ' 23:59:59');
 
       for (const entry of entries) {
         const duration = entry.clock_out
@@ -367,8 +387,9 @@ router.get('/export/:seasonId', requireAdmin, (req, res) => {
       }
     }
 
+    const detailedSuffix = dateRange ? `-${rangeStart}-to-${rangeEnd}` : '';
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="attendance-detailed-${season.name}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="attendance-detailed-${season.name}${detailedSuffix}.csv"`);
     return res.send(csv);
   }
 
@@ -376,12 +397,13 @@ router.get('/export/:seasonId', requireAdmin, (req, res) => {
   let csv = 'Student Name,PIN,Mandatory Hours Attended,Mandatory Hours Available,Attendance %,Bonus Hours,Auto Clock-Out Count,Late Count,Exemption Count\n';
 
   for (const student of students) {
-    const attendance = calculateStudentAttendance(student.id, seasonId);
+    const attendance = calculateStudentAttendance(student.id, seasonId, dateRange);
     csv += `"${student.name}",${student.pin_last4},${attendance.mandatoryHoursAttended},${attendance.mandatoryHoursAvailable},${attendance.percentage}%,${attendance.bonusHours},${attendance.autoClockoutCount},${attendance.lateCount},${attendance.exemptionCount}\n`;
   }
 
+  const summarySuffix = dateRange ? `-${rangeStart}-to-${rangeEnd}` : '';
   res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', `attachment; filename="attendance-summary-${season.name}.csv"`);
+  res.setHeader('Content-Disposition', `attachment; filename="attendance-summary-${season.name}${summarySuffix}.csv"`);
   res.send(csv);
 });
 
