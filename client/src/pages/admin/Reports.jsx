@@ -55,7 +55,7 @@ function Reports() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-kiosk-text mb-6">Reports & Export</h1>
+      <h1 className="brand-heading text-3xl text-kiosk-text mb-6">Reports & Export</h1>
 
       <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
@@ -95,7 +95,7 @@ function Reports() {
             Export a summary of all student attendance data including hours, percentages, and flags.
           </p>
           <button onClick={() => handleExport(false)}
-            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 w-full">
+            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover w-full">
             Download Summary CSV
           </button>
         </div>
@@ -106,7 +106,7 @@ function Reports() {
             Export every clock-in/out entry with timestamps, meeting associations, and all flags.
           </p>
           <button onClick={() => handleExport(true)}
-            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 w-full">
+            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover w-full">
             Download Detailed CSV
           </button>
         </div>
@@ -130,7 +130,7 @@ function Reports() {
           <input ref={fileInputRef} type="file" accept=".sqlite,.db" onChange={handleRestore}
             className="hidden" id="restore-file" />
           <button onClick={() => fileInputRef.current?.click()} disabled={restoring}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-500 w-full font-medium disabled:opacity-50">
+            className="bg-kiosk-danger text-white px-4 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover w-full font-medium disabled:opacity-50">
             {restoring ? 'Restoring...' : 'Upload & Restore Database'}
           </button>
           {restoreStatus && (

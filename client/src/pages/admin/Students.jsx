@@ -59,7 +59,7 @@ function Students() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-kiosk-text">Students</h1>
+        <h1 className="brand-heading text-3xl text-kiosk-text">Students</h1>
         <div className="flex gap-3">
           <label className="flex items-center gap-2 text-kiosk-muted text-sm">
             <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)}
@@ -67,7 +67,7 @@ function Students() {
             Show Archived
           </label>
           <button onClick={() => { setShowCreate(!showCreate); setCreatedStudent(null); }}
-            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+            className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-kiosk-accentHover transition-colors">
             + Add Student
           </button>
         </div>
@@ -104,7 +104,7 @@ function Students() {
                 className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text focus:border-kiosk-accent focus:outline-none" />
             </div>
             <div className="md:col-span-3">
-              <button type="submit" className="bg-kiosk-success text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
+              <button type="submit" className="bg-kiosk-success text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
                 Create Student
               </button>
             </div>

@@ -135,14 +135,14 @@ function Schedule() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-kiosk-text">Schedule</h1>
+        <h1 className="brand-heading text-3xl text-kiosk-text">Schedule</h1>
         <select value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)}
           className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
           {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </div>
 
-      {message && <div className="bg-blue-500/20 text-blue-400 p-3 rounded-lg mb-4 text-sm">{message}</div>}
+      {message && <div className="bg-kiosk-accent/15 border border-kiosk-accent/30 text-slate-200 p-3 rounded-lg mb-4 text-sm">{message}</div>}
 
       {/* Default schedule */}
       <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700 mb-6">
@@ -170,8 +170,8 @@ function Schedule() {
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={addDefault} className="text-sm text-kiosk-accent hover:underline">+ Add Day</button>
-            <button type="submit" className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600">Save Defaults</button>
-            <button type="button" onClick={handleGenerate} className="bg-kiosk-success text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600">
+            <button type="submit" className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover">Save Defaults</button>
+            <button type="button" onClick={handleGenerate} className="bg-kiosk-success text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
               Generate Meetings
             </button>
           </div>
@@ -250,7 +250,7 @@ function Schedule() {
           <div className="flex gap-3 items-center">
             <input type="month" value={viewMonth} onChange={e => setViewMonth(e.target.value)}
               className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
-            <button onClick={() => setShowAddEvent(!showAddEvent)} className="bg-kiosk-accent text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-600">
+            <button onClick={() => setShowAddEvent(!showAddEvent)} className="bg-kiosk-accent text-white px-3 py-1.5 rounded-lg text-sm hover:bg-kiosk-accentHover">
               + Custom Event
             </button>
           </div>
@@ -279,7 +279,7 @@ function Schedule() {
                 <span className="text-kiosk-text text-sm">{m.date}</span>
                 <span className="text-kiosk-muted text-sm ml-2">{m.start_time}–{m.end_time}</span>
                 {m.name && <span className="text-kiosk-accent text-sm ml-2">{m.name}</span>}
-                {m.is_custom ? <span className="text-purple-400 text-xs ml-2">[Custom]</span> : null}
+                {m.is_custom ? <span className="text-slate-300 text-xs ml-2">[Custom]</span> : null}
                 <span className={`text-xs ml-2 ${m.is_mandatory ? 'text-green-400' : 'text-yellow-400'}`}>
                   {m.is_mandatory ? 'Mandatory' : 'Optional'}
                 </span>

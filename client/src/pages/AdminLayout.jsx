@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { LogoMark } from '../components/Logo';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', end: true },
@@ -24,8 +25,14 @@ function AdminLayout({ admin, onLogout }) {
       {/* Sidebar */}
       <aside className={`${sidebarOpen ? 'block' : 'hidden'} md:block w-56 bg-kiosk-surface border-r border-slate-700 flex-shrink-0 fixed md:relative inset-0 z-50`}>
         <div className="p-4 border-b border-slate-700">
-          <h2 className="text-kiosk-text font-bold text-lg">Attendance</h2>
-          <p className="text-kiosk-muted text-xs">Admin Panel</p>
+          <div className="flex items-center gap-2.5">
+            <LogoMark size={32} />
+            <div className="leading-none">
+              <h2 className="brand-heading text-kiosk-text text-xl">Precision Guessworks</h2>
+              <p className="font-logo text-kiosk-accent text-[0.6rem] uppercase tracking-[0.18em] mt-0.5">1646</p>
+            </div>
+          </div>
+          <p className="text-kiosk-muted text-xs mt-2">Attendance · Admin Panel</p>
         </div>
         <nav className="p-2">
           {NAV_ITEMS.map(item => (
@@ -65,7 +72,10 @@ function AdminLayout({ admin, onLogout }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-kiosk-text font-bold">Admin</span>
+          <div className="flex items-center gap-2">
+            <LogoMark size={24} />
+            <span className="brand-heading text-kiosk-text text-lg">Precision Guessworks</span>
+          </div>
           <div className="w-6" />
         </header>
         <div className="p-4 md:p-6 lg:p-8">

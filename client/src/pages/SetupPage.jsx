@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../utils/api';
+import { BrandLockup } from '../components/Logo';
 
 function SetupPage({ onComplete }) {
   const [step, setStep] = useState(1);
@@ -81,8 +82,9 @@ function SetupPage({ onComplete }) {
 
   return (
     <div className="min-h-screen bg-kiosk-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-kiosk-surface rounded-2xl p-8 shadow-2xl">
-        <h1 className="text-2xl font-bold text-kiosk-text mb-1">FRC Attendance Tracker</h1>
+      <div className="w-full max-w-md bg-kiosk-surface rounded-xl p-8 shadow-2xl border-t-4 border-kiosk-accent">
+        <BrandLockup size={38} variant="team" className="mb-4" />
+        <h1 className="brand-heading text-3xl text-kiosk-text mb-1">Attendance Setup</h1>
         <p className="text-kiosk-muted mb-6">Initial Setup — Step {step} of 3</p>
 
         {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}
@@ -98,7 +100,7 @@ function SetupPage({ onComplete }) {
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-4 py-3 text-kiosk-text mb-6 focus:border-kiosk-accent focus:outline-none"
               required minLength={6} />
-            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors">
+            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-kiosk-accentHover transition-colors">
               Create Admin Account
             </button>
           </form>
@@ -131,7 +133,7 @@ function SetupPage({ onComplete }) {
                   required />
               </div>
             </div>
-            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors">
+            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-kiosk-accentHover transition-colors">
               Create Season
             </button>
           </form>
@@ -173,7 +175,7 @@ function SetupPage({ onComplete }) {
                 );
               })}
             </div>
-            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors">
+            <button type="submit" className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-kiosk-accentHover transition-colors">
               Complete Setup
             </button>
           </form>

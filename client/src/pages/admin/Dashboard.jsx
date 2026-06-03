@@ -99,7 +99,7 @@ function Dashboard() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-kiosk-text">Dashboard</h1>
+        <h1 className="brand-heading text-3xl text-kiosk-text">Dashboard</h1>
         <div className="flex gap-3 items-center">
           <select value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)}
             className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
@@ -136,7 +136,7 @@ function Dashboard() {
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                 className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-1.5 text-kiosk-text text-sm focus:outline-none focus:border-kiosk-accent" />
               <button onClick={applyDateRange} disabled={!startDate || !endDate}
-                className="bg-kiosk-accent text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                className="bg-kiosk-accent text-white px-4 py-1.5 rounded-lg text-sm hover:bg-kiosk-accentHover disabled:opacity-50 disabled:cursor-not-allowed">
                 Apply
               </button>
               <button onClick={clearDateRange}
