@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import { BrandLockup } from '../components/Logo';
 
 const KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
@@ -134,25 +135,30 @@ function KioskPage() {
 
   return (
     <div className={`min-h-screen bg-kiosk-bg flex flex-col items-center justify-center p-4 ${flash}`}>
-      {/* Header with time and admin button */}
-      <div className="w-full max-w-lg mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="text-4xl font-bold text-kiosk-text tabular-nums">{formatTime(currentTime)}</div>
-            <div className="text-kiosk-muted text-sm">{formatDate(currentTime)}</div>
-          </div>
+      {/* Brand bar */}
+      <div className="w-full max-w-lg mb-5">
+        <div className="flex justify-between items-center">
+          <BrandLockup size={34} variant="app" />
           <button
             onClick={() => navigate('/admin/login')}
-            className="text-kiosk-muted text-xs px-3 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+            className="text-kiosk-muted text-xs px-3 py-1.5 rounded border border-slate-700 hover:border-kiosk-accent hover:text-kiosk-text transition-colors"
           >
             Admin
           </button>
         </div>
-        {todayMeetings.length > 0 && (
-          <div className="mt-2 text-kiosk-accent text-sm">
-            Today: {todayMeetings.map(m => `${m.start_time} – ${m.end_time}`).join(', ')}
+        <div className="brand-rule mt-3" />
+        <div className="flex items-end justify-between mt-3">
+          <div>
+            <div className="text-4xl font-bold text-kiosk-text tabular-nums">{formatTime(currentTime)}</div>
+            <div className="text-kiosk-muted text-sm">{formatDate(currentTime)}</div>
           </div>
-        )}
+          {todayMeetings.length > 0 && (
+            <div className="text-right text-kiosk-accent text-sm font-medium">
+              <span className="text-kiosk-muted">Today</span><br />
+              {todayMeetings.map(m => `${m.start_time} – ${m.end_time}`).join(', ')}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main content */}
@@ -161,15 +167,15 @@ function KioskPage() {
           /* PIN Entry */
           <div>
             <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-kiosk-text mb-2">Enter Your PIN</h1>
+              <h1 className="brand-heading text-4xl text-kiosk-text mb-2">Enter Your PIN</h1>
               {error && <div className="text-kiosk-danger text-lg font-semibold">{error}</div>}
             </div>
 
             {/* PIN display */}
             <div className="flex justify-center gap-3 mb-8">
               {[0,1,2,3].map(i => (
-                <div key={i} className={`w-14 h-16 rounded-lg border-2 flex items-center justify-center text-3xl font-bold
-                  ${pin.length > i ? 'border-kiosk-accent bg-kiosk-surface text-kiosk-text' : 'border-slate-600 text-transparent'}`}>
+                <div key={i} className={`w-14 h-16 rounded-md border-2 flex items-center justify-center text-3xl font-bold transition-colors
+                  ${pin.length > i ? 'border-kiosk-accent bg-kiosk-surface text-kiosk-text shadow-accent' : 'border-slate-600 text-transparent'}`}>
                   {pin[i] ? '●' : ''}
                 </div>
               ))}
@@ -182,11 +188,11 @@ function KioskPage() {
                   key={i}
                   onClick={() => handleKey(key)}
                   disabled={key === ''}
-                  className={`h-16 rounded-xl text-2xl font-bold transition-all active:scale-95
+                  className={`h-16 rounded-lg text-2xl font-bold transition-all active:scale-95 border border-slate-700
                     ${key === '' ? 'invisible' : ''}
                     ${key === '⌫'
-                      ? 'bg-slate-700 text-kiosk-muted hover:bg-slate-600'
-                      : 'bg-kiosk-surface text-kiosk-text hover:bg-slate-600 active:bg-kiosk-accent'
+                      ? 'bg-slate-800 text-kiosk-muted hover:bg-slate-700'
+                      : 'bg-kiosk-surface text-kiosk-text hover:border-kiosk-accent hover:bg-slate-700 active:bg-kiosk-accent active:border-kiosk-accent'
                     }`}
                 >
                   {key}
@@ -197,34 +203,34 @@ function KioskPage() {
         ) : message ? (
           /* Confirmation */
           <div className="text-center">
-            <div className="text-5xl mb-4">{flash === 'flash-green' ? '✓' : '✓'}</div>
-            <div className="text-2xl font-bold text-kiosk-text">{message}</div>
+            <div className={`text-5xl mb-4 ${flash === 'flash-red' ? 'text-kiosk-accent' : 'text-kiosk-success'}`}>✓</div>
+            <div className="brand-heading text-3xl text-kiosk-text">{message}</div>
           </div>
         ) : (
           /* Clock In/Out */
           <div className="text-center">
             {clockedIn ? (
               <>
-                <h2 className="text-2xl text-kiosk-text mb-2">Hi {student.name}!</h2>
+                <h2 className="brand-heading text-4xl text-kiosk-text mb-2">Hi {student.name}!</h2>
                 <p className="text-kiosk-muted text-lg mb-6">You've been here {getElapsedTime()}</p>
                 <button
                   onClick={handleClockOut}
-                  className="w-full max-w-xs mx-auto h-20 bg-kiosk-danger text-white text-2xl font-bold rounded-2xl
-                    hover:bg-red-600 active:scale-95 transition-all"
+                  className="w-full max-w-xs mx-auto h-20 bg-kiosk-danger text-white text-2xl font-bold rounded-xl
+                    hover:bg-kiosk-accentHover active:scale-95 transition-all brand-heading tracking-wider"
                 >
-                  CLOCK OUT
+                  Clock Out
                 </button>
               </>
             ) : (
               <>
-                <h2 className="text-2xl text-kiosk-text mb-2">Welcome, {student.name}!</h2>
+                <h2 className="brand-heading text-4xl text-kiosk-text mb-2">Welcome, {student.name}!</h2>
                 <p className="text-kiosk-muted text-lg mb-6">Ready to clock in?</p>
                 <button
                   onClick={handleClockIn}
-                  className="w-full max-w-xs mx-auto h-20 bg-kiosk-success text-white text-2xl font-bold rounded-2xl
-                    hover:bg-green-600 active:scale-95 transition-all"
+                  className="w-full max-w-xs mx-auto h-20 bg-kiosk-success text-white text-2xl font-bold rounded-xl
+                    hover:bg-green-700 active:scale-95 transition-all brand-heading tracking-wider"
                 >
-                  CLOCK IN
+                  Clock In
                 </button>
               </>
             )}

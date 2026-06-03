@@ -55,9 +55,9 @@ function Seasons() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-kiosk-text">Seasons</h1>
+        <h1 className="brand-heading text-3xl text-kiosk-text">Seasons</h1>
         <button onClick={() => setShowCreate(!showCreate)}
-          className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+          className="bg-kiosk-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-kiosk-accentHover transition-colors">
           + New Season
         </button>
       </div>
@@ -92,7 +92,7 @@ function Seasons() {
                 className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text focus:outline-none" required />
             </div>
           </div>
-          <button type="submit" className="bg-kiosk-success text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-600">Create</button>
+          <button type="submit" className="bg-kiosk-success text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-700">Create</button>
         </form>
       )}
 

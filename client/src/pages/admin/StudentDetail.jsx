@@ -198,7 +198,7 @@ function StudentDetail() {
               </div>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-kiosk-text">{student.name}</h1>
+                <h1 className="brand-heading text-3xl text-kiosk-text">{student.name}</h1>
                 <p className="text-kiosk-muted text-sm">PIN ending: {student.pin_last4}</p>
                 {student.notes && <p className="text-kiosk-muted text-sm mt-1">{student.notes}</p>}
               </>
@@ -242,7 +242,7 @@ function StudentDetail() {
           {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <button onClick={() => setShowAddEntry(!showAddEntry)}
-          className="bg-kiosk-accent text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600">
+          className="bg-kiosk-accent text-white px-3 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover">
           + Manual Entry
         </button>
       </div>
@@ -329,9 +329,9 @@ function StudentDetail() {
                 const statusColors = {
                   present: 'text-green-400',
                   absent: 'text-red-400',
-                  exempt: 'text-blue-400',
+                  exempt: 'text-kiosk-warning',
                   cancelled: 'text-slate-500',
-                  'optional-attended': 'text-purple-400'
+                  'optional-attended': 'text-slate-300'
                 };
                 return (
                   <tr key={m.id} className="border-b border-slate-800">
@@ -353,7 +353,7 @@ function StudentDetail() {
                     <td className="p-2 text-center">
                       {!m.is_cancelled && m.is_mandatory && (
                         <button onClick={() => handleToggleExemption(m.id)}
-                          className={`px-2 py-0.5 rounded text-xs ${m.isExempt ? 'bg-blue-500/20 text-blue-400' : 'border border-slate-600 text-kiosk-muted hover:text-kiosk-text'}`}>
+                          className={`px-2 py-0.5 rounded text-xs ${m.isExempt ? 'bg-kiosk-warning/20 text-kiosk-warning' : 'border border-slate-600 text-kiosk-muted hover:text-kiosk-text'}`}>
                           {m.isExempt ? 'Exempted' : 'Exempt'}
                         </button>
                       )}
@@ -413,7 +413,7 @@ function StudentDetail() {
                       </td>
                       <td className="p-2 text-right space-x-2">
                         <button onClick={() => startEditEntry(e)}
-                          className="text-xs text-kiosk-accent hover:text-blue-300">Edit</button>
+                          className="text-xs text-kiosk-accent hover:text-kiosk-accentHover">Edit</button>
                         <button onClick={() => handleDeleteEntry(e.id)}
                           className="text-xs text-red-400 hover:text-red-300">Delete</button>
                       </td>

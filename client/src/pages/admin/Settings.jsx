@@ -36,7 +36,7 @@ function Settings() {
   }
 
   function addThreshold() {
-    setThresholds([...thresholds, { name: '', percentage: 0, color: '#3b82f6', sort_order: thresholds.length }]);
+    setThresholds([...thresholds, { name: '', percentage: 0, color: '#9e0001', sort_order: thresholds.length }]);
   }
 
   function removeThreshold(i) {
@@ -83,7 +83,7 @@ function Settings() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-kiosk-text mb-6">Settings</h1>
+      <h1 className="brand-heading text-3xl text-kiosk-text mb-6">Settings</h1>
 
       {message && <div className="bg-green-500/20 text-green-400 p-3 rounded-lg mb-4 text-sm">{message}</div>}
 
@@ -116,7 +116,7 @@ function Settings() {
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={addThreshold} className="text-sm text-kiosk-accent hover:underline">+ Add Threshold</button>
-            <button type="submit" className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600">Save Thresholds</button>
+            <button type="submit" className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover">Save Thresholds</button>
           </div>
         </form>
       </div>
@@ -133,7 +133,7 @@ function Settings() {
             <label className="block mb-2">
               <span className="sr-only">Choose CSV file</span>
               <input type="file" accept=".csv,text/csv" onChange={handleFileSelect}
-                className="block w-full text-sm text-kiosk-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-kiosk-accent file:text-white hover:file:bg-blue-600 file:cursor-pointer" />
+                className="block w-full text-sm text-kiosk-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-kiosk-accent file:text-white hover:file:bg-kiosk-accentHover file:cursor-pointer" />
             </label>
             {importFileName && <p className="text-kiosk-muted text-xs mt-1">Selected: {importFileName}</p>}
           </div>
@@ -148,7 +148,7 @@ function Settings() {
           )}
 
           <button onClick={handleImport} disabled={!importCsv.trim() || importing}
-            className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover disabled:opacity-50 disabled:cursor-not-allowed">
             {importing ? 'Importing...' : 'Import'}
           </button>
 
@@ -188,7 +188,7 @@ function Settings() {
 
       <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700">
         <h2 className="text-lg font-semibold text-kiosk-text mb-2">About</h2>
-        <p className="text-kiosk-muted text-sm">FRC Attendance Tracker v1.0.0</p>
+        <p className="text-kiosk-muted text-sm">Precision Guessworks · Team 1646 Attendance v1.0.0</p>
         <p className="text-kiosk-muted text-sm">Offline-first PWA for tracking FRC team attendance.</p>
       </div>
     </div>

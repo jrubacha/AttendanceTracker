@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BrandLockup } from '../components/Logo';
 
 function AdminLogin({ onLogin }) {
   const navigate = useNavigate();
@@ -23,11 +24,13 @@ function AdminLogin({ onLogin }) {
 
   return (
     <div className="min-h-screen bg-kiosk-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-kiosk-surface rounded-2xl p-8 shadow-2xl">
-        <button onClick={() => navigate('/')} className="text-kiosk-muted text-sm hover:text-kiosk-text mb-4 block">
+      <div className="w-full max-w-sm bg-kiosk-surface rounded-xl p-8 shadow-2xl border-t-4 border-kiosk-accent">
+        <button onClick={() => navigate('/')} className="text-kiosk-muted text-sm hover:text-kiosk-text mb-6 block">
           &larr; Back to Kiosk
         </button>
-        <h1 className="text-2xl font-bold text-kiosk-text mb-6">Admin Login</h1>
+        <BrandLockup size={36} variant="team" className="mb-5" />
+        <h1 className="brand-heading text-3xl text-kiosk-text mb-1">Admin Login</h1>
+        <div className="brand-rule mb-6" />
         {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4">{error}</div>}
         <form onSubmit={handleSubmit}>
           <label className="block text-kiosk-muted text-sm mb-1">Username</label>
@@ -39,7 +42,7 @@ function AdminLogin({ onLogin }) {
             className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-4 py-3 text-kiosk-text mb-6 focus:border-kiosk-accent focus:outline-none"
             required />
           <button type="submit" disabled={loading}
-            className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50">
+            className="w-full bg-kiosk-accent text-white font-bold py-3 rounded-lg hover:bg-kiosk-accentHover transition-colors disabled:opacity-50">
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
