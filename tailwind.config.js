@@ -36,10 +36,11 @@ export default {
         }
       },
       fontFamily: {
-        // Bebas for headings & titles (uppercase, condensed). Montserrat stands in
-        // for Glacial Indifference as the clean geometric body face.
+        // Brand typefaces: Bebas Neue for headings/titles (uppercase, condensed),
+        // Glacial Indifference as the clean body face, Neuropol for logo lettering.
         heading: ['"Bebas Neue"', 'Oswald', 'Impact', 'sans-serif'],
-        sans: ['Montserrat', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
+        logo: ['Neuropol', '"Bebas Neue"', 'sans-serif'],
+        sans: ['"Glacial Indifference"', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
       },
       letterSpacing: {
         heading: '0.04em'

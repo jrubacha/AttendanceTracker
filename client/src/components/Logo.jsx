@@ -53,7 +53,7 @@ export function LogoMark({ size = 40, className = '' }) {
  *  - "app"   → ATTENDANCE       (default, for this kiosk)
  */
 export function BrandLockup({ size = 40, variant = 'app', className = '' }) {
-  const sub = variant === 'team' ? 'Team 1646' : 'Attendance';
+  const sub = variant === 'team' ? '1646' : 'Attendance';
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <LogoMark size={size} />
@@ -61,7 +61,10 @@ export function BrandLockup({ size = 40, variant = 'app', className = '' }) {
         <div className="brand-heading text-kiosk-text" style={{ fontSize: size * 0.5 }}>
           Precision Guessworks
         </div>
-        <div className="brand-heading text-kiosk-accent tracking-[0.22em]" style={{ fontSize: size * 0.3 }}>
+        <div
+          className="font-logo text-kiosk-accent uppercase tracking-[0.18em]"
+          style={{ fontSize: size * 0.26, marginTop: size * 0.06 }}
+        >
           {sub}
         </div>
       </div>

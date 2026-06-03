@@ -29,7 +29,7 @@ function AdminLayout({ admin, onLogout }) {
             <LogoMark size={32} />
             <div className="leading-none">
               <h2 className="brand-heading text-kiosk-text text-xl">Precision Guessworks</h2>
-              <p className="brand-heading text-kiosk-accent text-xs tracking-[0.2em]">Team 1646</p>
+              <p className="font-logo text-kiosk-accent text-[0.6rem] uppercase tracking-[0.18em] mt-0.5">1646</p>
             </div>
           </div>
           <p className="text-kiosk-muted text-xs mt-2">Attendance · Admin Panel</p>
