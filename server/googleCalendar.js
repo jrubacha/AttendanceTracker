@@ -93,22 +93,14 @@ function expandOccurrence(e, occStart, isRecurring, out, tz) {
   }
 
   const endDate = new Date(occStart.getTime() + durMs);
-  // Recurring occurrences from rrule carry the wall-clock time as UTC-naive, so
-  // read them with UTC components. Single timed events are absolute instants, so
-  // render them in the calendar's timezone (host-independent).
-  let dateStr, startT, endT;
-  if (isRecurring) {
-    dateStr = fmtDate(occStart, true);
-    startT = fmtTime(occStart, true);
-    endT = fmtTime(endDate, true);
-    if (fmtDate(endDate, true) !== dateStr) endT = '23:59';
-  } else {
-    const s = wallClockInTz(occStart, tz);
-    const en = wallClockInTz(endDate, tz);
-    dateStr = s.date;
-    startT = s.time;
-    endT = en.date !== s.date ? '23:59' : en.time;
-  }
+  // node-ical/rrule return absolute UTC instants for every occurrence (and they
+  // are DST-aware), so render both single and recurring timed events in the
+  // calendar's timezone. This is host-timezone independent.
+  const s = wallClockInTz(occStart, tz);
+  const en = wallClockInTz(endDate, tz);
+  const dateStr = s.date;
+  const startT = s.time;
+  let endT = en.date !== s.date ? '23:59' : en.time; // ends on a later day → clamp
   if (endT <= startT) endT = '23:59';
   out.push({
     key: isRecurring ? `${uid}:${dateStr}` : uid,
