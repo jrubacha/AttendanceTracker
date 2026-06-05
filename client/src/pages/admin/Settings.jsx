@@ -16,6 +16,7 @@ function Settings() {
 
   // Google Calendar state
   const [googleUrl, setGoogleUrl] = useState('');
+  const [googleTz, setGoogleTz] = useState('America/New_York');
   const [googleLastSync, setGoogleLastSync] = useState('');
   const [googleSaving, setGoogleSaving] = useState(false);
   const [googleSyncing, setGoogleSyncing] = useState(false);
@@ -29,6 +30,7 @@ function Settings() {
     try {
       const { settings } = await api.getSettings();
       setGoogleUrl(settings.google_calendar_url || '');
+      setGoogleTz(settings.calendar_timezone || 'America/New_York');
       setGoogleLastSync(settings.google_last_sync || '');
     } catch { /* ignore */ }
   }
@@ -37,7 +39,7 @@ function Settings() {
     setGoogleSaving(true);
     setGoogleError('');
     try {
-      await api.updateSettings({ google_calendar_url: googleUrl });
+      await api.updateSettings({ google_calendar_url: googleUrl, calendar_timezone: googleTz });
       setMessage('Google Calendar settings saved');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
@@ -52,7 +54,7 @@ function Settings() {
     setGoogleResult(null);
     try {
       // Persist the URL first so the sync uses the latest value
-      await api.updateSettings({ google_calendar_url: googleUrl });
+      await api.updateSettings({ google_calendar_url: googleUrl, calendar_timezone: googleTz });
       const result = await api.syncGoogleCalendar();
       setGoogleResult(result);
       loadSettings();
@@ -180,6 +182,21 @@ function Settings() {
           <input type="url" value={googleUrl} onChange={e => setGoogleUrl(e.target.value)}
             placeholder="https://calendar.google.com/calendar/ical/.../public/basic.ics"
             className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:border-kiosk-accent focus:outline-none" />
+
+          <div>
+            <label className="block text-kiosk-muted text-xs mb-1">Calendar timezone</label>
+            <select value={googleTz} onChange={e => setGoogleTz(e.target.value)}
+              className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:border-kiosk-accent focus:outline-none">
+              <option value="America/New_York">Eastern (America/New_York)</option>
+              <option value="America/Chicago">Central (America/Chicago)</option>
+              <option value="America/Denver">Mountain (America/Denver)</option>
+              <option value="America/Phoenix">Arizona (America/Phoenix)</option>
+              <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+              <option value="America/Anchorage">Alaska (America/Anchorage)</option>
+              <option value="Pacific/Honolulu">Hawaii (Pacific/Honolulu)</option>
+            </select>
+            <p className="text-kiosk-muted text-xs mt-1">Used to place event times correctly regardless of the server's timezone.</p>
+          </div>
 
           <div className="flex flex-wrap gap-3 items-center">
             <button onClick={handleSaveGoogle} disabled={googleSaving}

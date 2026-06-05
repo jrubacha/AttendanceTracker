@@ -6,7 +6,7 @@ const { syncGoogleCalendar, getSetting, setSetting } = require('../googleCalenda
 const router = express.Router();
 
 // Settings that are safe to expose/edit via this endpoint.
-const ALLOWED_KEYS = ['google_calendar_url'];
+const ALLOWED_KEYS = ['google_calendar_url', 'calendar_timezone'];
 const READONLY_KEYS = ['google_last_sync'];
 
 // Get settings

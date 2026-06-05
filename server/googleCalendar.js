@@ -34,6 +34,18 @@ function fmtTime(d, utc) {
     : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Render an absolute Date as wall-clock { date, time } in a specific IANA
+// timezone, so one-off events land on the right day/time no matter what
+// timezone the server runs in. Uses the built-in Intl API (no dependency).
+function wallClockInTz(date, tz) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date).reduce((a, p) => { a[p.type] = p.value; return a; }, {});
+  const hour = parts.hour === '24' ? '00' : parts.hour; // some engines emit '24' for midnight
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${hour}:${parts.minute}` };
+}
+
 function autoClockoutFor(endTime) {
   const [h, m] = endTime.split(':').map(Number);
   const mins = h * 60 + m + 5;
@@ -43,17 +55,13 @@ function autoClockoutFor(endTime) {
 // Turn one event occurrence into one or more day-level meeting "instances".
 // occStart is the Date for this occurrence's start; isRecurring marks events
 // that produce multiple occurrences (so the dedupe key includes the date).
-function expandOccurrence(e, occStart, isRecurring, out) {
+function expandOccurrence(e, occStart, isRecurring, out, tz) {
   const allDay = e.datetype === 'date';
   const summary = ((e.summary || 'Event') + '').trim() || 'Event';
   const uid = (e.uid || summary) + '';
   const durMs = (e.end && e.start)
     ? (e.end.getTime() - e.start.getTime())
     : (allDay ? 86400000 : 60 * 60 * 1000);
-  // Recurring occurrences (from rrule) carry the wall-clock time as UTC-naive,
-  // and all-day events are date-only in UTC; single timed events are absolute,
-  // so read those in the host's local timezone.
-  const useUTC = allDay || isRecurring;
 
   if (allDay) {
     let days = Math.round(durMs / 86400000);
@@ -76,10 +84,22 @@ function expandOccurrence(e, occStart, isRecurring, out) {
   }
 
   const endDate = new Date(occStart.getTime() + durMs);
-  const dateStr = fmtDate(occStart, useUTC);
-  const startT = fmtTime(occStart, useUTC);
-  let endT = fmtTime(endDate, useUTC);
-  if (fmtDate(endDate, useUTC) !== dateStr) endT = '23:59'; // crosses midnight → clamp
+  // Recurring occurrences from rrule carry the wall-clock time as UTC-naive, so
+  // read them with UTC components. Single timed events are absolute instants, so
+  // render them in the calendar's timezone (host-independent).
+  let dateStr, startT, endT;
+  if (isRecurring) {
+    dateStr = fmtDate(occStart, true);
+    startT = fmtTime(occStart, true);
+    endT = fmtTime(endDate, true);
+    if (fmtDate(endDate, true) !== dateStr) endT = '23:59';
+  } else {
+    const s = wallClockInTz(occStart, tz);
+    const en = wallClockInTz(endDate, tz);
+    dateStr = s.date;
+    startT = s.time;
+    endT = en.date !== s.date ? '23:59' : en.time;
+  }
   if (endT <= startT) endT = '23:59';
   out.push({
     key: isRecurring ? `${uid}:${dateStr}` : uid,
@@ -91,7 +111,7 @@ function expandOccurrence(e, occStart, isRecurring, out) {
   });
 }
 
-async function fetchInstances(url) {
+async function fetchInstances(url, tz) {
   const data = await ical.async.fromURL(url);
   const rangeStart = dayjs().subtract(PAST_MONTHS, 'month');
   const rangeEnd = dayjs().add(FUTURE_MONTHS, 'month');
@@ -109,16 +129,16 @@ async function fetchInstances(url) {
         if (e.recurrences && e.recurrences[dstr]) {
           // This occurrence was individually edited in Google
           const ov = e.recurrences[dstr];
-          expandOccurrence(ov, ov.start, true, out);
+          expandOccurrence(ov, ov.start, true, out, tz);
         } else {
-          expandOccurrence(e, occ, true, out);
+          expandOccurrence(e, occ, true, out, tz);
         }
       }
     } else {
       if (!e.start) continue;
       const d = dayjs(e.start);
       if (d.isBefore(rangeStart) || d.isAfter(rangeEnd)) continue;
-      expandOccurrence(e, e.start, false, out);
+      expandOccurrence(e, e.start, false, out, tz);
     }
   }
   return out;
@@ -130,7 +150,8 @@ async function syncGoogleCalendar() {
   const url = getSetting('google_calendar_url');
   if (!url || !url.trim()) return { configured: false };
 
-  const instances = await fetchInstances(url.trim());
+  const tz = getSetting('calendar_timezone') || 'America/New_York';
+  const instances = await fetchInstances(url.trim(), tz);
 
   const findByKey = db.prepare('SELECT * FROM meetings WHERE google_event_id = ?');
   const insert = db.prepare(

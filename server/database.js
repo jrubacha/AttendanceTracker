@@ -258,6 +258,14 @@ async function initialize() {
   try {
     db.exec('CREATE INDEX IF NOT EXISTS idx_meetings_google ON meetings(google_event_id)');
   } catch { /* index already exists */ }
+
+  // Seed default settings (only if not already set, so admin edits stick).
+  const seedSetting = (key, value) => {
+    const row = db.prepare('SELECT 1 FROM settings WHERE key = ?').get(key);
+    if (!row) db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  };
+  seedSetting('google_calendar_url', 'https://calendar.google.com/calendar/ical/firstpg1646%40gmail.com/public/basic.ics');
+  seedSetting('calendar_timezone', 'America/New_York');
 }
 
 function reloadDatabase() {
