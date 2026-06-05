@@ -14,8 +14,55 @@ function Settings() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
 
-  useEffect(() => { loadSeasons(); }, []);
+  // Google Calendar state
+  const [googleUrl, setGoogleUrl] = useState('');
+  const [googleTz, setGoogleTz] = useState('America/New_York');
+  const [googleLastSync, setGoogleLastSync] = useState('');
+  const [googleSaving, setGoogleSaving] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleResult, setGoogleResult] = useState(null);
+  const [googleError, setGoogleError] = useState('');
+
+  useEffect(() => { loadSeasons(); loadSettings(); }, []);
   useEffect(() => { if (selectedSeason) loadThresholds(); }, [selectedSeason]);
+
+  async function loadSettings() {
+    try {
+      const { settings } = await api.getSettings();
+      setGoogleUrl(settings.google_calendar_url || '');
+      setGoogleTz(settings.calendar_timezone || 'America/New_York');
+      setGoogleLastSync(settings.google_last_sync || '');
+    } catch { /* ignore */ }
+  }
+
+  async function handleSaveGoogle() {
+    setGoogleSaving(true);
+    setGoogleError('');
+    try {
+      await api.updateSettings({ google_calendar_url: googleUrl, calendar_timezone: googleTz });
+      setMessage('Google Calendar settings saved');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setGoogleError(err.message || 'Save failed');
+    }
+    setGoogleSaving(false);
+  }
+
+  async function handleGoogleSync() {
+    setGoogleSyncing(true);
+    setGoogleError('');
+    setGoogleResult(null);
+    try {
+      // Persist the URL first so the sync uses the latest value
+      await api.updateSettings({ google_calendar_url: googleUrl, calendar_timezone: googleTz });
+      const result = await api.syncGoogleCalendar();
+      setGoogleResult(result);
+      loadSettings();
+    } catch (err) {
+      setGoogleError(err.message || 'Sync failed');
+    }
+    setGoogleSyncing(false);
+  }
 
   async function loadSeasons() {
     const { seasons: s } = await api.getSeasons();
@@ -119,6 +166,61 @@ function Settings() {
             <button type="submit" className="bg-kiosk-accent text-white px-6 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover">Save Thresholds</button>
           </div>
         </form>
+      </div>
+
+      <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700 mb-6">
+        <h2 className="text-lg font-semibold text-kiosk-text mb-2">Google Calendar Sync</h2>
+        <p className="text-kiosk-muted text-sm mb-4">
+          Paste your calendar's <span className="text-kiosk-text">public iCal address</span> (Google Calendar → Settings →
+          your calendar → <span className="text-kiosk-text">Integrate calendar</span> → <span className="text-kiosk-text">Public address in iCal format</span>).
+          Events become meetings on the schedule: timed events are <span className="text-kiosk-text">mandatory</span> by default,
+          all-day events are <span className="text-kiosk-text">optional</span>, all tagged <span className="text-kiosk-text">Meeting</span>.
+          The calendar re-syncs automatically every 30 minutes; your mandatory/optional, category, season, and cancel changes are kept.
+        </p>
+
+        <div className="space-y-3">
+          <input type="url" value={googleUrl} onChange={e => setGoogleUrl(e.target.value)}
+            placeholder="https://calendar.google.com/calendar/ical/.../public/basic.ics"
+            className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:border-kiosk-accent focus:outline-none" />
+
+          <div>
+            <label className="block text-kiosk-muted text-xs mb-1">Calendar timezone</label>
+            <select value={googleTz} onChange={e => setGoogleTz(e.target.value)}
+              className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:border-kiosk-accent focus:outline-none">
+              <option value="America/New_York">Eastern (America/New_York)</option>
+              <option value="America/Chicago">Central (America/Chicago)</option>
+              <option value="America/Denver">Mountain (America/Denver)</option>
+              <option value="America/Phoenix">Arizona (America/Phoenix)</option>
+              <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+              <option value="America/Anchorage">Alaska (America/Anchorage)</option>
+              <option value="Pacific/Honolulu">Hawaii (Pacific/Honolulu)</option>
+            </select>
+            <p className="text-kiosk-muted text-xs mt-1">Used to place event times correctly regardless of the server's timezone.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-3 items-center">
+            <button onClick={handleSaveGoogle} disabled={googleSaving}
+              className="bg-kiosk-accent text-white px-5 py-2 rounded-lg text-sm hover:bg-kiosk-accentHover disabled:opacity-50">
+              {googleSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button onClick={handleGoogleSync} disabled={googleSyncing || !googleUrl.trim()}
+              className="bg-kiosk-success text-white px-5 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              {googleSyncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+            {googleLastSync && (
+              <span className="text-kiosk-muted text-xs">Last synced: {new Date(googleLastSync).toLocaleString()}</span>
+            )}
+          </div>
+
+          {googleError && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg text-sm">{googleError}</div>}
+          {googleResult && (
+            <div className="bg-green-500/20 text-green-400 p-3 rounded-lg text-sm">
+              Synced {googleResult.total} events — {googleResult.imported} added, {googleResult.updated} updated
+              {googleResult.removed ? `, ${googleResult.removed} removed` : ''}
+              {googleResult.cancelled ? `, ${googleResult.cancelled} cancelled (had attendance)` : ''}.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700 mb-6">

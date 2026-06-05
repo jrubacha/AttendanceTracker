@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { initialize, DB_PATH, DATA_DIR, reloadDatabase } = require('./database');
 const { startAutoClockoutScheduler } = require('./autoClockout');
+const { startGoogleCalendarScheduler } = require('./googleCalendar');
 
 async function main() {
   // Initialize database (async for sql.js WASM loading)
@@ -27,6 +28,7 @@ async function main() {
   app.use('/api/double-time', require('./routes/doubleTime'));
   app.use('/api/reports', require('./routes/reports'));
   app.use('/api/import', require('./routes/import'));
+  app.use('/api/settings', require('./routes/settings'));
 
   // Database backup/download
   app.get('/api/backup', (req, res) => {
@@ -94,6 +96,7 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`FRC Attendance Tracker running on port ${PORT}`);
     startAutoClockoutScheduler();
+    startGoogleCalendarScheduler();
   });
 }
 

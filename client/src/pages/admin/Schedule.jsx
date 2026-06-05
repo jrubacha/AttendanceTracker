@@ -3,6 +3,12 @@ import { api } from '../../utils/api';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const CATEGORIES = ['Meeting', 'Competition', 'Outreach'];
+const CATEGORY_COLORS = {
+  Meeting: '#3b82f6',     // blue
+  Competition: '#f97316', // orange
+  Outreach: '#a855f7',    // purple
+};
 
 // Local helpers (avoid timezone surprises by working with YYYY-MM-DD strings)
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -15,14 +21,16 @@ function Schedule() {
   const [viewMonth, setViewMonth] = useState(new Date().toISOString().slice(0, 7));
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'list'
   const [selectedDay, setSelectedDay] = useState(null); // 'YYYY-MM-DD'
+  const [catFilter, setCatFilter] = useState('all');
 
   const [showGenerate, setShowGenerate] = useState(false);
   const [genStart, setGenStart] = useState('');
   const [genEnd, setGenEnd] = useState('');
   const [genSeason, setGenSeason] = useState('');
+  const [genCategory, setGenCategory] = useState('Meeting');
   const [genDays, setGenDays] = useState([{ day_of_week: 1, start_time: '18:00', end_time: '21:00', is_mandatory: 1 }]);
 
-  const [eventData, setEventData] = useState({ date: '', start_time: '18:00', end_time: '21:00', name: '', is_mandatory: true, season_id: '' });
+  const [eventData, setEventData] = useState({ date: '', start_time: '18:00', end_time: '21:00', name: '', is_mandatory: true, season_id: '', category: 'Meeting' });
   const [showAddEvent, setShowAddEvent] = useState(false);
 
   const [doubleTimeRules, setDoubleTimeRules] = useState([]);
@@ -83,6 +91,7 @@ function Schedule() {
         start_date: genStart,
         end_date: genEnd,
         season_id: genSeason ? parseInt(genSeason) : null,
+        category: genCategory,
         days: genDays,
       });
       const skipNote = result.skipped ? ` (${result.skipped} skipped as duplicates)` : '';
@@ -104,6 +113,10 @@ function Schedule() {
     await api.updateMeeting(m.id, { season_id: seasonId ? parseInt(seasonId) : null });
     loadMeetings();
   }
+  async function handleSetCategory(m, category) {
+    await api.updateMeeting(m.id, { category });
+    loadMeetings();
+  }
   async function handleDeleteMeeting(id) {
     if (!window.confirm('Delete this meeting?')) return;
     await api.deleteMeeting(id);
@@ -120,9 +133,10 @@ function Schedule() {
         end_time: eventData.end_time,
         name: eventData.name,
         is_mandatory: eventData.is_mandatory,
+        category: eventData.category,
       });
       setShowAddEvent(false);
-      setEventData({ date: '', start_time: '18:00', end_time: '21:00', name: '', is_mandatory: true, season_id: '' });
+      setEventData({ date: '', start_time: '18:00', end_time: '21:00', name: '', is_mandatory: true, season_id: '', category: 'Meeting' });
       loadMeetings();
     } catch (err) { flash(err.message); }
   }
@@ -159,8 +173,9 @@ function Schedule() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = new Date().toISOString().slice(0, 10);
 
+  const visibleMeetings = catFilter === 'all' ? meetings : meetings.filter(m => (m.category || 'Meeting') === catFilter);
   const meetingsByDate = {};
-  for (const m of meetings) {
+  for (const m of visibleMeetings) {
     (meetingsByDate[m.date] = meetingsByDate[m.date] || []).push(m);
   }
 
@@ -238,6 +253,13 @@ function Schedule() {
                   {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="block text-kiosk-muted text-xs mb-1">Category</label>
+                <select value={genCategory} onChange={e => setGenCategory(e.target.value)}
+                  className="w-full bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
 
             <label className="block text-kiosk-muted text-xs mb-2">Weekly time slots</label>
@@ -275,7 +297,12 @@ function Schedule() {
       <div className="bg-kiosk-surface rounded-xl p-6 border border-slate-700 mb-6">
         <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
           <h2 className="text-lg font-semibold text-kiosk-text">Meetings</h2>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
+            <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
+              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
+              <option value="all">All Categories</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             <button onClick={() => changeMonth(-1)} className="px-2 py-1 border border-slate-600 rounded text-kiosk-muted hover:text-kiosk-text text-sm">‹</button>
             <input type="month" value={viewMonth} onChange={e => { setViewMonth(e.target.value); setSelectedDay(null); }}
               className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
@@ -288,7 +315,7 @@ function Schedule() {
         </div>
 
         {showAddEvent && (
-          <form onSubmit={handleAddEvent} className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4 p-4 bg-kiosk-bg rounded-lg">
+          <form onSubmit={handleAddEvent} className="grid grid-cols-2 md:grid-cols-7 gap-3 mb-4 p-4 bg-kiosk-bg rounded-lg">
             <input type="date" value={eventData.date} onChange={e => setEventData({ ...eventData, date: e.target.value })}
               className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" required />
             <input type="time" value={eventData.start_time} onChange={e => setEventData({ ...eventData, start_time: e.target.value })}
@@ -297,6 +324,10 @@ function Schedule() {
               className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" required />
             <input type="text" value={eventData.name} onChange={e => setEventData({ ...eventData, name: e.target.value })}
               placeholder="Event name" className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none" />
+            <select value={eventData.category} onChange={e => setEventData({ ...eventData, category: e.target.value })}
+              className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             <select value={eventData.season_id} onChange={e => setEventData({ ...eventData, season_id: e.target.value })}
               className="bg-kiosk-bg border border-slate-600 rounded px-2 py-1.5 text-kiosk-text text-sm focus:outline-none">
               <option value="">No season</option>
@@ -326,7 +357,9 @@ function Schedule() {
                     <div className={`text-xs mb-1 ${isToday ? 'text-kiosk-accent font-bold' : 'text-kiosk-muted'}`}>{d}</div>
                     <div className="space-y-0.5">
                       {dayMeetings.slice(0, 3).map(m => (
-                        <div key={m.id} className={`text-[10px] px-1 py-0.5 rounded truncate ${meetingChipClass(m)}`}>
+                        <div key={m.id}
+                          className={`text-[10px] px-1 py-0.5 rounded truncate border-l-2 ${meetingChipClass(m)}`}
+                          style={{ borderLeftColor: CATEGORY_COLORS[m.category] || CATEGORY_COLORS.Meeting }}>
                           {m.start_time}{m.name ? ` ${m.name}` : ''}
                         </div>
                       ))}
@@ -354,7 +387,7 @@ function Schedule() {
                     {selectedDayMeetings.map(m => (
                       <MeetingRow key={m.id} m={m} seasons={seasons} seasonName={seasonName}
                         onToggleMandatory={handleToggleMandatory} onToggleCancelled={handleToggleCancelled}
-                        onAssignSeason={handleAssignSeason} onDelete={handleDeleteMeeting} />
+                        onAssignSeason={handleAssignSeason} onSetCategory={handleSetCategory} onDelete={handleDeleteMeeting} />
                     ))}
                   </div>
                 )}
@@ -363,9 +396,9 @@ function Schedule() {
           </>
         ) : (
           <div className="space-y-1 max-h-[32rem] overflow-y-auto">
-            {meetings.length === 0 ? (
+            {visibleMeetings.length === 0 ? (
               <p className="text-kiosk-muted text-sm py-4 text-center">No meetings this month.</p>
-            ) : meetings.map(m => (
+            ) : visibleMeetings.map(m => (
               <MeetingRow key={m.id} m={m} seasons={seasons} seasonName={seasonName} showDate
                 onToggleMandatory={handleToggleMandatory} onToggleCancelled={handleToggleCancelled}
                 onAssignSeason={handleAssignSeason} onDelete={handleDeleteMeeting} />
@@ -449,20 +482,31 @@ function Schedule() {
 }
 
 // A single meeting row with inline controls, used in both the day detail and the list view.
-function MeetingRow({ m, seasons, seasonName, showDate, onToggleMandatory, onToggleCancelled, onAssignSeason, onDelete }) {
+function MeetingRow({ m, seasons, seasonName, showDate, onToggleMandatory, onToggleCancelled, onAssignSeason, onSetCategory, onDelete }) {
+  const category = m.category || 'Meeting';
   return (
     <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg ${m.is_cancelled ? 'bg-slate-800/50 opacity-60' : 'bg-kiosk-surface'}`}>
       <div className={m.is_cancelled ? 'line-through' : ''}>
         {showDate && <span className="text-kiosk-text text-sm">{m.date}</span>}
         <span className="text-kiosk-muted text-sm ml-2">{m.start_time}–{m.end_time}</span>
         {m.name && <span className="text-kiosk-accent text-sm ml-2">{m.name}</span>}
+        <span className="text-xs ml-2 px-1.5 py-0.5 rounded"
+          style={{ backgroundColor: (CATEGORY_COLORS[category] || CATEGORY_COLORS.Meeting) + '22', color: CATEGORY_COLORS[category] || CATEGORY_COLORS.Meeting }}>
+          {category}
+        </span>
         {m.is_custom ? <span className="text-slate-300 text-xs ml-2">[Custom]</span> : null}
+        {m.google_event_id ? <span className="text-slate-400 text-xs ml-2" title="Synced from Google Calendar">[Google]</span> : null}
         <span className={`text-xs ml-2 ${m.is_mandatory ? 'text-green-400' : 'text-yellow-400'}`}>
           {m.is_mandatory ? 'Mandatory' : 'Optional'}
         </span>
         {m.season_id && <span className="text-xs ml-2 text-slate-300">· {seasonName(m.season_id) || 'Season'}</span>}
       </div>
       <div className="flex flex-wrap gap-2 items-center">
+        <select value={category} onChange={e => onSetCategory(m, e.target.value)}
+          title="Category"
+          className="bg-kiosk-bg border border-slate-600 rounded text-xs px-1.5 py-0.5 text-kiosk-muted focus:outline-none">
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={m.season_id || ''} onChange={e => onAssignSeason(m, e.target.value)}
           title="Assign season"
           className="bg-kiosk-bg border border-slate-600 rounded text-xs px-1.5 py-0.5 text-kiosk-muted focus:outline-none">

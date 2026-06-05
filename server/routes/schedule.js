@@ -5,6 +5,11 @@ const { requireAdmin } = require('../auth');
 
 const router = express.Router();
 
+const VALID_CATEGORIES = ['Meeting', 'Competition', 'Outreach'];
+function normalizeCategory(value, fallback = 'Meeting') {
+  return VALID_CATEGORIES.includes(value) ? value : fallback;
+}
+
 // Get schedule defaults for a season
 router.get('/defaults/:seasonId', requireAdmin, (req, res) => {
   const defaults = db.prepare(
@@ -81,7 +86,8 @@ router.post('/generate/:seasonId', requireAdmin, (req, res) => {
 // optionally tag the generated meetings to a season.
 // Body: { start_date, end_date, season_id (optional), days: [{ day_of_week, start_time, end_time, is_mandatory }] }
 router.post('/generate-meetings', requireAdmin, (req, res) => {
-  const { start_date, end_date, season_id, days } = req.body;
+  const { start_date, end_date, season_id, days, category } = req.body;
+  const meetingCategory = normalizeCategory(category);
   if (!start_date || !end_date) {
     return res.status(400).json({ error: 'start_date and end_date are required' });
   }
@@ -103,7 +109,7 @@ router.post('/generate-meetings', requireAdmin, (req, res) => {
   }
 
   const insert = db.prepare(
-    'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 0, ?)'
+    'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, category, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
   );
   const existsStmt = db.prepare('SELECT id FROM meetings WHERE date = ? AND start_time = ?');
 
@@ -123,7 +129,7 @@ router.post('/generate-meetings', requireAdmin, (req, res) => {
       const endParts = d.end_time.split(':');
       const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]) + 5;
       const autoClockout = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
-      insert.run(seasonId, dateStr, d.start_time, d.end_time, d.is_mandatory ? 1 : 0, autoClockout);
+      insert.run(seasonId, dateStr, d.start_time, d.end_time, d.is_mandatory ? 1 : 0, meetingCategory, autoClockout);
       count++;
     }
     current = current.add(1, 'day');
@@ -198,7 +204,7 @@ router.get('/today', (req, res) => {
 
 // Create custom meeting/event
 router.post('/meetings', requireAdmin, (req, res) => {
-  const { season_id, date, start_time, end_time, is_mandatory, name } = req.body;
+  const { season_id, date, start_time, end_time, is_mandatory, name, category } = req.body;
   if (!date || !start_time || !end_time) {
     return res.status(400).json({ error: 'Date, start time, and end time are required' });
   }
@@ -208,8 +214,8 @@ router.post('/meetings', requireAdmin, (req, res) => {
   const autoClockout = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
 
   const result = db.prepare(
-    'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, name, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
-  ).run(season_id || null, date, start_time, end_time, is_mandatory !== false ? 1 : 0, name || '', autoClockout);
+    'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, name, category, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)'
+  ).run(season_id || null, date, start_time, end_time, is_mandatory !== false ? 1 : 0, name || '', normalizeCategory(category), autoClockout);
 
   res.json({ meeting: { id: result.lastInsertRowid } });
 });
@@ -219,7 +225,7 @@ router.put('/meetings/:id', requireAdmin, (req, res) => {
   const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(req.params.id);
   if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
 
-  const { start_time, end_time, is_mandatory, is_cancelled, name, season_id } = req.body;
+  const { start_time, end_time, is_mandatory, is_cancelled, name, season_id, category } = req.body;
 
   const newEndTime = end_time || meeting.end_time;
   const endParts = newEndTime.split(':');
@@ -227,7 +233,7 @@ router.put('/meetings/:id', requireAdmin, (req, res) => {
   const autoClockout = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
 
   db.prepare(
-    'UPDATE meetings SET start_time = ?, end_time = ?, is_mandatory = ?, is_cancelled = ?, name = ?, season_id = ?, auto_clockout_time = ? WHERE id = ?'
+    'UPDATE meetings SET start_time = ?, end_time = ?, is_mandatory = ?, is_cancelled = ?, name = ?, season_id = ?, category = ?, auto_clockout_time = ? WHERE id = ?'
   ).run(
     start_time || meeting.start_time,
     newEndTime,
@@ -235,6 +241,7 @@ router.put('/meetings/:id', requireAdmin, (req, res) => {
     is_cancelled !== undefined ? (is_cancelled ? 1 : 0) : meeting.is_cancelled,
     name !== undefined ? name : meeting.name,
     season_id !== undefined ? (season_id || null) : meeting.season_id,
+    category !== undefined ? normalizeCategory(category, meeting.category) : meeting.category,
     autoClockout,
     req.params.id
   );

@@ -138,11 +138,14 @@ async function initialize() {
       is_cancelled INTEGER DEFAULT 0,
       is_custom INTEGER DEFAULT 0,
       name TEXT DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'Meeting',
+      google_event_id TEXT,
       auto_clockout_time TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
     CREATE INDEX IF NOT EXISTS idx_meetings_season ON meetings(season_id);
+    CREATE INDEX IF NOT EXISTS idx_meetings_google ON meetings(google_event_id);
 
     CREATE TABLE IF NOT EXISTS double_time_rules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -243,6 +246,26 @@ async function initialize() {
       db.pragma('foreign_keys = ON');
     }
   } catch { /* migration already applied or not needed */ }
+
+  // Add meeting category tag and Google Calendar linkage (after any rebuild
+  // above so these columns survive on already-migrated databases).
+  try {
+    db.exec("ALTER TABLE meetings ADD COLUMN category TEXT NOT NULL DEFAULT 'Meeting'");
+  } catch { /* column already exists */ }
+  try {
+    db.exec('ALTER TABLE meetings ADD COLUMN google_event_id TEXT');
+  } catch { /* column already exists */ }
+  try {
+    db.exec('CREATE INDEX IF NOT EXISTS idx_meetings_google ON meetings(google_event_id)');
+  } catch { /* index already exists */ }
+
+  // Seed default settings (only if not already set, so admin edits stick).
+  const seedSetting = (key, value) => {
+    const row = db.prepare('SELECT 1 FROM settings WHERE key = ?').get(key);
+    if (!row) db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  };
+  seedSetting('google_calendar_url', 'https://calendar.google.com/calendar/ical/firstpg1646%40gmail.com/public/basic.ics');
+  seedSetting('calendar_timezone', 'America/New_York');
 }
 
 function reloadDatabase() {
