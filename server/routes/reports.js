@@ -1,9 +1,26 @@
 const express = require('express');
 const dayjs = require('dayjs');
+const bcrypt = require('bcryptjs');
 const { db } = require('../database');
 const { requireAdmin } = require('../auth');
 
 const router = express.Router();
+
+// Resolve a student's threshold band (color + label) for a given percentage.
+// Mentors aren't held to minimums, so they get a neutral band.
+function thresholdBand(role, percentage, thresholds) {
+  if (role === 'mentor') return { color: '#94a3b8', name: 'Mentor' };
+  let color = '#ef4444';
+  let name = 'Below minimum';
+  for (const t of thresholds) {
+    if (percentage >= t.percentage) {
+      color = t.color;
+      name = t.name;
+      break;
+    }
+  }
+  return { color, name };
+}
 
 // Find the best overlapping non-cancelled meeting for a time entry based on time overlap.
 // Used when an entry's linked meeting was cancelled or when no meeting_id was stored
@@ -298,26 +315,23 @@ router.get('/dashboard/:seasonId', requireAdmin, (req, res) => {
   res.json({ report, thresholds, season });
 });
 
-// Individual student report
-router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
-  const student = db.prepare('SELECT id, name, pin_last4, role, is_archived, notes FROM students WHERE id = ?').get(req.params.studentId);
-  if (!student) return res.status(404).json({ error: 'Student not found' });
-
-  const seasonId = parseInt(req.params.seasonId);
-  const { startDate, endDate } = req.query;
-  const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
-  const attendance = calculateStudentAttendance(student.id, seasonId, dateRange);
+// Build the full per-student report payload (attendance summary + per-meeting
+// status + raw entries + thresholds) for a season. Shared by the admin
+// endpoint and the student self-service endpoint.
+function buildStudentReport(studentId, seasonId, dateRange) {
+  const attendance = calculateStudentAttendance(studentId, seasonId, dateRange);
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
+  if (!season) return null;
 
   const rangeStart = dateRange?.startDate || season.start_date;
   const rangeEnd = dateRange?.endDate || season.end_date;
 
   // Get all meetings with attendance status (filtered by date range if provided)
   const meetings = db.prepare('SELECT * FROM meetings WHERE season_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time').all(seasonId, rangeStart, rangeEnd);
-  const exemptions = db.prepare('SELECT meeting_id FROM exemptions WHERE student_id = ?').all(student.id).map(e => e.meeting_id);
+  const exemptions = db.prepare('SELECT meeting_id FROM exemptions WHERE student_id = ?').all(studentId).map(e => e.meeting_id);
   const entries = db.prepare(`
     SELECT * FROM time_entries WHERE student_id = ? AND clock_in >= ? AND clock_in <= ? ORDER BY clock_in
-  `).all(student.id, rangeStart, rangeEnd + ' 23:59:59');
+  `).all(studentId, rangeStart, rangeEnd + ' 23:59:59');
 
   const meetingDetails = meetings.map(meeting => {
     const isExempt = exemptions.includes(meeting.id);
@@ -363,7 +377,64 @@ router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
 
   const thresholds = db.prepare('SELECT * FROM thresholds WHERE season_id = ? ORDER BY percentage DESC').all(seasonId);
 
-  res.json({ student, attendance, season, meetingDetails, thresholds, entries });
+  return { attendance, season, meetingDetails, thresholds, entries };
+}
+
+// Individual student report (admin)
+router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
+  const student = db.prepare('SELECT id, name, pin_last4, role, is_archived, notes FROM students WHERE id = ?').get(req.params.studentId);
+  if (!student) return res.status(404).json({ error: 'Student not found' });
+
+  const seasonId = parseInt(req.params.seasonId);
+  const { startDate, endDate } = req.query;
+  const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
+  const data = buildStudentReport(student.id, seasonId, dateRange);
+  if (!data) return res.status(404).json({ error: 'Season not found' });
+
+  res.json({ student, ...data });
+});
+
+// Student self-service report (kiosk). PIN-authenticated, read-only summary:
+// stats + per-meeting attendance status, with raw clock-in/out times stripped.
+router.post('/my-report', (req, res) => {
+  const { pin, seasonId } = req.body;
+  if (!pin || pin.length !== 4) {
+    return res.status(400).json({ error: 'Invalid PIN' });
+  }
+  const students = db.prepare('SELECT * FROM students WHERE is_archived = 0').all();
+  const student = students.find(s => bcrypt.compareSync(pin, s.pin_hash));
+  if (!student) {
+    return res.status(404).json({ error: 'PIN not found' });
+  }
+
+  const seasons = db.prepare(
+    'SELECT id, name, type, start_date, end_date, is_active FROM seasons ORDER BY start_date DESC'
+  ).all();
+
+  // Resolve which season to show: requested, else active, else most recent.
+  let useSeasonId = seasonId ? parseInt(seasonId) : null;
+  if (!useSeasonId || !seasons.some(s => s.id === useSeasonId)) {
+    const active = seasons.find(s => s.is_active);
+    useSeasonId = active ? active.id : (seasons[0]?.id || null);
+  }
+
+  const base = { student: { name: student.name }, seasons, seasonId: useSeasonId };
+  if (!useSeasonId) {
+    return res.json({ ...base, attendance: null, season: null, meetingDetails: [], band: null });
+  }
+
+  const data = buildStudentReport(student.id, useSeasonId, null);
+  // Strip raw clock-in/out entries — students see a summary, not the log.
+  const meetingDetails = data.meetingDetails.map(({ entries, ...m }) => m);
+  const band = thresholdBand(student.role, data.attendance.percentage, data.thresholds);
+
+  res.json({
+    ...base,
+    attendance: data.attendance,
+    season: data.season,
+    meetingDetails,
+    band,
+  });
 });
 
 // CSV export

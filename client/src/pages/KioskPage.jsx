@@ -24,6 +24,8 @@ function KioskPage() {
   const [savingNote, setSavingNote] = useState(false);
   // Exemption request modal
   const [exemptionOpen, setExemptionOpen] = useState(false);
+  // My attendance (read-only self-service) modal
+  const [myStatsOpen, setMyStatsOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -62,7 +64,7 @@ function KioskPage() {
   }
 
   const handleKey = useCallback(async (key) => {
-    if (student || exemptionOpen) return; // Already showing student view / modal open
+    if (student || exemptionOpen || myStatsOpen) return; // Already showing student view / modal open
 
     if (key === '⌫') {
       setPin(p => p.slice(0, -1));
@@ -86,12 +88,12 @@ function KioskPage() {
         setTimeout(() => { setPin(''); setError(''); }, 1500);
       }
     }
-  }, [pin, student, exemptionOpen]);
+  }, [pin, student, exemptionOpen, myStatsOpen]);
 
   // Accept keyboard input for PIN entry and Enter for clock in/out
   useEffect(() => {
     function handleKeyDown(e) {
-      if (exemptionOpen || noteEntryId) return; // modal / note box handles its own input
+      if (exemptionOpen || myStatsOpen || noteEntryId) return; // modal / note box handles its own input
       if (e.key >= '0' && e.key <= '9') {
         handleKey(e.key);
       } else if (e.key === 'Backspace') {
@@ -106,7 +108,7 @@ function KioskPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKey, student, message, clockedIn, exemptionOpen, noteEntryId]);
+  }, [handleKey, student, message, clockedIn, exemptionOpen, myStatsOpen, noteEntryId]);
 
   async function handleClockIn() {
     try {
@@ -234,13 +236,19 @@ function KioskPage() {
               ))}
             </div>
 
-            {/* Exemption request */}
-            <div className="text-center mt-6">
+            {/* Exemption request + self-service attendance */}
+            <div className="text-center mt-6 space-y-2">
               <button
                 onClick={() => setExemptionOpen(true)}
-                className="text-kiosk-muted text-sm underline hover:text-kiosk-accent transition-colors"
+                className="block w-full text-kiosk-muted text-sm underline hover:text-kiosk-accent transition-colors"
               >
                 Request a meeting exemption
+              </button>
+              <button
+                onClick={() => setMyStatsOpen(true)}
+                className="block w-full text-kiosk-muted text-sm underline hover:text-kiosk-accent transition-colors"
+              >
+                View my attendance
               </button>
             </div>
           </div>
@@ -319,6 +327,10 @@ function KioskPage() {
       {exemptionOpen && (
         <ExemptionModal onClose={() => setExemptionOpen(false)} />
       )}
+
+      {myStatsOpen && (
+        <MyAttendanceModal onClose={() => setMyStatsOpen(false)} />
+      )}
     </div>
   );
 }
@@ -336,6 +348,17 @@ function ExemptionModal({ onClose }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Allow typing the PIN with a physical keyboard, not just the on-screen pad.
+  useEffect(() => {
+    if (step !== 'pin') return;
+    function onKey(e) {
+      if (e.key >= '0' && e.key <= '9') { e.preventDefault(); handlePinKey(e.key); }
+      else if (e.key === 'Backspace') { e.preventDefault(); handlePinKey('⌫'); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step, pin, loading]);
 
   async function handlePinKey(key) {
     if (loading) return;
@@ -481,6 +504,192 @@ function ExemptionModal({ onClose }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// My Attendance modal: PIN -> read-only summary (stats + per-meeting status)
+// ---------------------------------------------------------------------------
+function MyAttendanceModal({ onClose }) {
+  const [step, setStep] = useState('pin'); // 'pin' | 'report'
+  const [pin, setPin] = useState('');
+  const [report, setReport] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (step !== 'pin') return;
+    function onKey(e) {
+      if (e.key >= '0' && e.key <= '9') { e.preventDefault(); handlePinKey(e.key); }
+      else if (e.key === 'Backspace') { e.preventDefault(); handlePinKey('⌫'); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step, pin, loading]);
+
+  async function loadReport(enteredPin, seasonId) {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.getMyReport(enteredPin, seasonId);
+      setReport(data);
+      setStep('report');
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePinKey(key) {
+    if (loading) return;
+    if (key === '⌫') { setPin(p => p.slice(0, -1)); setError(''); return; }
+    if (key === '') return;
+    const newPin = pin + key;
+    if (newPin.length > 4) return;
+    setPin(newPin);
+    setError('');
+    if (newPin.length === 4) {
+      const ok = await loadReport(newPin);
+      if (!ok) setTimeout(() => { setPin(''); setError(''); }, 1500);
+    }
+  }
+
+  function changeSeason(seasonId) {
+    loadReport(pin, seasonId);
+  }
+
+  const a = report?.attendance;
+  const isMentor = a?.isMentor;
+
+  const statusColors = {
+    present: 'text-green-400',
+    absent: 'text-red-400',
+    exempt: 'text-kiosk-warning',
+    cancelled: 'text-slate-500',
+    'optional-attended': 'text-slate-300',
+  };
+  const fmtDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-kiosk-bg border border-slate-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="brand-heading text-2xl text-kiosk-text">My Attendance</h2>
+          <button onClick={onClose} className="text-kiosk-muted hover:text-kiosk-text text-2xl leading-none">×</button>
+        </div>
+
+        {step === 'pin' && (
+          <div>
+            <p className="text-kiosk-muted text-sm text-center mb-4">Enter your PIN to view your attendance</p>
+            <div className="flex justify-center gap-3 mb-6">
+              {[0,1,2,3].map(i => (
+                <div key={i} className={`w-12 h-14 rounded-md border-2 flex items-center justify-center text-2xl font-bold
+                  ${pin.length > i ? 'border-kiosk-accent bg-kiosk-surface text-kiosk-text' : 'border-slate-600 text-transparent'}`}>
+                  {pin[i] ? '●' : ''}
+                </div>
+              ))}
+            </div>
+            {error && <div className="text-kiosk-danger text-center mb-3">{error}</div>}
+            <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+              {KEYS.map((key, i) => (
+                <button
+                  key={i}
+                  onClick={() => handlePinKey(key)}
+                  disabled={key === '' || loading}
+                  className={`h-14 rounded-lg text-2xl font-bold transition-all active:scale-95 border border-slate-700
+                    ${key === '' ? 'invisible' : ''}
+                    ${key === '⌫'
+                      ? 'bg-slate-800 text-kiosk-muted hover:bg-slate-700'
+                      : 'bg-kiosk-surface text-kiosk-text hover:border-kiosk-accent hover:bg-slate-700'
+                    }`}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 'report' && report && (
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <p className="text-kiosk-text text-lg">Hi {report.student.name}!</p>
+              {report.seasons.length > 0 && (
+                <select
+                  value={report.seasonId || ''}
+                  onChange={e => changeSeason(e.target.value)}
+                  disabled={loading}
+                  className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-1.5 text-kiosk-text text-sm focus:outline-none"
+                >
+                  {report.seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              )}
+            </div>
+
+            {!a ? (
+              <p className="text-kiosk-muted text-center py-8">No season data available yet.</p>
+            ) : (
+              <>
+                {report.band && (
+                  <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold"
+                    style={{ backgroundColor: `${report.band.color}22`, color: report.band.color }}>
+                    {report.band.name}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+                  <Stat label="Attendance" value={isMentor ? '—' : `${a.percentage}%`} />
+                  <Stat label="Total Hours" value={a.totalCredited} />
+                  <Stat label={isMentor ? 'Hours Attended' : 'Mandatory'}
+                    value={isMentor ? a.mandatoryHoursAttended : `${a.mandatoryHoursAttended} / ${a.mandatoryHoursAvailable}`} />
+                  <Stat label="Bonus Hours" value={a.bonusHours} />
+                  <Stat label="Late / Auto-CO" value={`${a.lateCount} / ${a.autoClockoutCount}`} />
+                  <Stat label="Exemptions" value={a.exemptionCount} />
+                </div>
+
+                <div className="bg-kiosk-surface rounded-xl border border-slate-700 overflow-hidden">
+                  <h3 className="px-4 py-2.5 text-kiosk-text font-semibold border-b border-slate-700 text-sm">Meeting History</h3>
+                  <div className="max-h-72 overflow-y-auto">
+                    {report.meetingDetails.length === 0 ? (
+                      <p className="text-kiosk-muted text-center py-6 text-sm">No meetings in this season.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {report.meetingDetails.map(m => (
+                            <tr key={m.id} className="border-b border-slate-800">
+                              <td className="px-3 py-2 text-kiosk-text whitespace-nowrap">{fmtDate(m.date)}</td>
+                              <td className="px-3 py-2 text-kiosk-muted whitespace-nowrap">{m.start_time}–{m.end_time}</td>
+                              <td className={`px-3 py-2 text-right capitalize ${statusColors[m.status] || 'text-kiosk-muted'}`}>
+                                {m.status}{m.wasLate ? ' (late)' : ''}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="bg-kiosk-surface rounded-xl p-3 border border-slate-700">
+      <div className="text-kiosk-muted text-xs">{label}</div>
+      <div className="text-xl font-bold text-kiosk-text">{value}</div>
     </div>
   );
 }

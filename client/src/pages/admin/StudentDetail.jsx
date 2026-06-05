@@ -29,7 +29,16 @@ function StudentDetail() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [editClockIn, setEditClockIn] = useState('');
   const [editClockOut, setEditClockOut] = useState('');
+  const [expandedNotes, setExpandedNotes] = useState(() => new Set());
   const [error, setError] = useState('');
+
+  function toggleNote(entryId) {
+    setExpandedNotes(prev => {
+      const next = new Set(prev);
+      next.has(entryId) ? next.delete(entryId) : next.add(entryId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     loadSeasons();
@@ -399,7 +408,8 @@ function StudentDetail() {
             </thead>
             <tbody>
               {entries.map(e => (
-                <tr key={e.id} className="border-b border-slate-800">
+                <React.Fragment key={e.id}>
+                <tr className="border-b border-slate-800">
                   {editingEntry === e.id ? (
                     <>
                       <td className="p-2">
@@ -427,7 +437,14 @@ function StudentDetail() {
                       <td className="p-2 text-kiosk-text">{e.clock_out ? new Date(e.clock_out).toLocaleString() : '—'}</td>
                       <td className="p-2 text-center">
                         {e.is_late ? <span className="text-yellow-400 text-xs mr-1">Late</span> : null}
-                        {e.is_auto_clockout ? <span className="text-orange-400 text-xs">Auto-CO</span> : null}
+                        {e.is_auto_clockout ? <span className="text-orange-400 text-xs mr-1">Auto-CO</span> : null}
+                        {e.notes ? (
+                          <button onClick={() => toggleNote(e.id)}
+                            className="text-xs text-kiosk-accent hover:text-kiosk-accentHover underline"
+                            title="View the student's note">
+                            {expandedNotes.has(e.id) ? 'Hide note' : 'Note'}
+                          </button>
+                        ) : null}
                       </td>
                       <td className="p-2 text-right space-x-2">
                         <button onClick={() => startEditEntry(e)}
@@ -438,6 +455,17 @@ function StudentDetail() {
                     </>
                   )}
                 </tr>
+                {e.notes && expandedNotes.has(e.id) && editingEntry !== e.id && (
+                  <tr className="border-b border-slate-800 bg-kiosk-bg/40">
+                    <td colSpan={4} className="px-3 py-2.5">
+                      <span className="text-kiosk-muted text-[0.65rem] uppercase tracking-wide block mb-1">
+                        Out-of-hours note
+                      </span>
+                      <span className="text-kiosk-text text-sm whitespace-pre-wrap">{e.notes}</span>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
