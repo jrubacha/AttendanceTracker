@@ -97,6 +97,7 @@ async function initialize() {
       name TEXT NOT NULL,
       pin_hash TEXT NOT NULL,
       pin_last4 TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('student', 'mentor')),
       is_archived INTEGER DEFAULT 0,
       notes TEXT DEFAULT '',
       hours_adjustment REAL DEFAULT 0,
@@ -129,7 +130,7 @@ async function initialize() {
 
     CREATE TABLE IF NOT EXISTS meetings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      season_id INTEGER NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+      season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,
       date TEXT NOT NULL,
       start_time TEXT NOT NULL,
       end_time TEXT NOT NULL,
@@ -205,6 +206,43 @@ async function initialize() {
   try {
     db.exec("ALTER TABLE double_time_rules ADD COLUMN specific_dates TEXT DEFAULT ''");
   } catch { /* column already exists */ }
+  try {
+    db.exec("ALTER TABLE students ADD COLUMN role TEXT NOT NULL DEFAULT 'student'");
+  } catch { /* column already exists */ }
+
+  // Migration: make meetings.season_id nullable (ON DELETE SET NULL instead of
+  // NOT NULL ... ON DELETE CASCADE) so meetings can exist independently of a
+  // season and be tagged to one "as needed". SQLite can't ALTER a column's
+  // constraints in place, so rebuild the table if the old NOT NULL schema is
+  // detected.
+  try {
+    const cols = db.prepare("PRAGMA table_info('meetings')").all();
+    const seasonCol = cols.find(c => c.name === 'season_id');
+    if (seasonCol && seasonCol.notnull === 1) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE meetings_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,
+          date TEXT NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL,
+          is_mandatory INTEGER DEFAULT 1,
+          is_cancelled INTEGER DEFAULT 0,
+          is_custom INTEGER DEFAULT 0,
+          name TEXT DEFAULT '',
+          auto_clockout_time TEXT
+        );
+        INSERT INTO meetings_new (id, season_id, date, start_time, end_time, is_mandatory, is_cancelled, is_custom, name, auto_clockout_time)
+          SELECT id, season_id, date, start_time, end_time, is_mandatory, is_cancelled, is_custom, name, auto_clockout_time FROM meetings;
+        DROP TABLE meetings;
+        ALTER TABLE meetings_new RENAME TO meetings;
+        CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
+        CREATE INDEX IF NOT EXISTS idx_meetings_season ON meetings(season_id);
+      `);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch { /* migration already applied or not needed */ }
 }
 
 function reloadDatabase() {

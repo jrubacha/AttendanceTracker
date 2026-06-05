@@ -8,14 +8,12 @@ const router = express.Router();
 // Find the meeting that covers a given timestamp
 function findMeetingForTime(timestamp) {
   const date = dayjs(timestamp).format('YYYY-MM-DD');
-  const time = dayjs(timestamp).format('HH:mm');
-  const season = db.prepare('SELECT * FROM seasons WHERE is_active = 1').get();
-  if (!season) return null;
 
-  // Find meetings on this date that haven't been cancelled
+  // Find meetings on this date that haven't been cancelled. Meetings are no
+  // longer required to belong to a season, so match purely by date/time window.
   const meetings = db.prepare(
-    'SELECT * FROM meetings WHERE season_id = ? AND date = ? AND is_cancelled = 0 ORDER BY start_time'
-  ).all(season.id, date);
+    'SELECT * FROM meetings WHERE date = ? AND is_cancelled = 0 ORDER BY start_time'
+  ).all(date);
 
   // Find the meeting whose window covers this time (with some flexibility)
   for (const meeting of meetings) {

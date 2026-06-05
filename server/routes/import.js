@@ -120,9 +120,6 @@ router.post('/attendance', requireAdmin, (req, res) => {
     studentMap.set(s.name.toLowerCase().trim(), s.id);
   });
 
-  // Load active season for meeting matching
-  const activeSeason = db.prepare('SELECT * FROM seasons WHERE is_active = 1').get();
-
   const results = { imported: 0, skipped: [], errors: [] };
 
   for (const row of rows) {
@@ -171,12 +168,13 @@ router.post('/attendance', requireAdmin, (req, res) => {
     const clockIn = `${date} ${timeIn}`;
     const clockOut = timeOut ? `${date} ${timeOut}` : null;
 
-    // Try to match to a meeting on this date
+    // Try to match to a meeting on this date (meetings are not required to
+    // belong to a season, so match purely by date/time window).
     let meetingId = null;
-    if (activeSeason) {
+    {
       const meetings = db.prepare(
-        'SELECT * FROM meetings WHERE season_id = ? AND date = ? AND is_cancelled = 0 ORDER BY start_time'
-      ).all(activeSeason.id, date);
+        'SELECT * FROM meetings WHERE date = ? AND is_cancelled = 0 ORDER BY start_time'
+      ).all(date);
 
       for (const meeting of meetings) {
         const meetingStart = dayjs(`${date} ${meeting.start_time}`).subtract(30, 'minute');

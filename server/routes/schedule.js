@@ -76,6 +76,97 @@ router.post('/generate/:seasonId', requireAdmin, (req, res) => {
   res.json({ success: true, meetingsGenerated: count });
 });
 
+// Standalone meeting generator. Not tied to a season's date window: caller
+// supplies an explicit date range and per-weekday time slots, and may
+// optionally tag the generated meetings to a season.
+// Body: { start_date, end_date, season_id (optional), days: [{ day_of_week, start_time, end_time, is_mandatory }] }
+router.post('/generate-meetings', requireAdmin, (req, res) => {
+  const { start_date, end_date, season_id, days } = req.body;
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: 'start_date and end_date are required' });
+  }
+  if (!Array.isArray(days) || days.length === 0) {
+    return res.status(400).json({ error: 'At least one day/time slot is required' });
+  }
+
+  let seasonId = null;
+  if (season_id) {
+    const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(season_id);
+    if (!season) return res.status(404).json({ error: 'Season not found' });
+    seasonId = season.id;
+  }
+
+  const startDate = dayjs(start_date);
+  const endDate = dayjs(end_date);
+  if (!startDate.isValid() || !endDate.isValid() || endDate.isBefore(startDate)) {
+    return res.status(400).json({ error: 'Invalid date range' });
+  }
+
+  const insert = db.prepare(
+    'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 0, ?)'
+  );
+  const existsStmt = db.prepare('SELECT id FROM meetings WHERE date = ? AND start_time = ?');
+
+  let count = 0;
+  let skipped = 0;
+  let current = startDate;
+  while (current.isBefore(endDate) || current.isSame(endDate, 'day')) {
+    const dow = current.day();
+    const dateStr = current.format('YYYY-MM-DD');
+    const matching = days.filter(d => Number(d.day_of_week) === dow);
+    for (const d of matching) {
+      // Skip if a meeting already exists at this date + start time (avoid dupes)
+      if (existsStmt.get(dateStr, d.start_time)) {
+        skipped++;
+        continue;
+      }
+      const endParts = d.end_time.split(':');
+      const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1]) + 5;
+      const autoClockout = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
+      insert.run(seasonId, dateStr, d.start_time, d.end_time, d.is_mandatory ? 1 : 0, autoClockout);
+      count++;
+    }
+    current = current.add(1, 'day');
+  }
+
+  res.json({ success: true, meetingsGenerated: count, skipped });
+});
+
+// Assign (or clear) the season for all meetings in a date range.
+// Body: { start_date, end_date, season_id (null to clear) }
+router.post('/assign-season', requireAdmin, (req, res) => {
+  const { start_date, end_date, season_id } = req.body;
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: 'start_date and end_date are required' });
+  }
+  let seasonId = null;
+  if (season_id) {
+    const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(season_id);
+    if (!season) return res.status(404).json({ error: 'Season not found' });
+    seasonId = season.id;
+  }
+  const result = db.prepare(
+    'UPDATE meetings SET season_id = ? WHERE date >= ? AND date <= ?'
+  ).run(seasonId, start_date, end_date);
+  res.json({ success: true, updated: result.changes });
+});
+
+// Get meetings across all seasons within a date range (optionally filter by season).
+// Query: ?start=YYYY-MM-DD&end=YYYY-MM-DD&season_id=ID
+router.get('/meetings', (req, res) => {
+  const { start, end, season_id } = req.query;
+  const conditions = [];
+  const params = [];
+  if (start) { conditions.push('date >= ?'); params.push(start); }
+  if (end) { conditions.push('date <= ?'); params.push(end); }
+  if (season_id) { conditions.push('season_id = ?'); params.push(season_id); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const meetings = db.prepare(
+    `SELECT * FROM meetings ${where} ORDER BY date, start_time`
+  ).all(...params);
+  res.json({ meetings });
+});
+
 // Get meetings for a season (optionally filter by date range)
 router.get('/meetings/:seasonId', (req, res) => {
   const { start, end } = req.query;
@@ -108,8 +199,8 @@ router.get('/today', (req, res) => {
 // Create custom meeting/event
 router.post('/meetings', requireAdmin, (req, res) => {
   const { season_id, date, start_time, end_time, is_mandatory, name } = req.body;
-  if (!season_id || !date || !start_time || !end_time) {
-    return res.status(400).json({ error: 'All fields required' });
+  if (!date || !start_time || !end_time) {
+    return res.status(400).json({ error: 'Date, start time, and end time are required' });
   }
 
   const endParts = end_time.split(':');
@@ -118,7 +209,7 @@ router.post('/meetings', requireAdmin, (req, res) => {
 
   const result = db.prepare(
     'INSERT INTO meetings (season_id, date, start_time, end_time, is_mandatory, is_custom, name, auto_clockout_time) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
-  ).run(season_id, date, start_time, end_time, is_mandatory !== false ? 1 : 0, name || '', autoClockout);
+  ).run(season_id || null, date, start_time, end_time, is_mandatory !== false ? 1 : 0, name || '', autoClockout);
 
   res.json({ meeting: { id: result.lastInsertRowid } });
 });
@@ -128,7 +219,7 @@ router.put('/meetings/:id', requireAdmin, (req, res) => {
   const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(req.params.id);
   if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
 
-  const { start_time, end_time, is_mandatory, is_cancelled, name } = req.body;
+  const { start_time, end_time, is_mandatory, is_cancelled, name, season_id } = req.body;
 
   const newEndTime = end_time || meeting.end_time;
   const endParts = newEndTime.split(':');
@@ -136,13 +227,14 @@ router.put('/meetings/:id', requireAdmin, (req, res) => {
   const autoClockout = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
 
   db.prepare(
-    'UPDATE meetings SET start_time = ?, end_time = ?, is_mandatory = ?, is_cancelled = ?, name = ?, auto_clockout_time = ? WHERE id = ?'
+    'UPDATE meetings SET start_time = ?, end_time = ?, is_mandatory = ?, is_cancelled = ?, name = ?, season_id = ?, auto_clockout_time = ? WHERE id = ?'
   ).run(
     start_time || meeting.start_time,
     newEndTime,
     is_mandatory !== undefined ? (is_mandatory ? 1 : 0) : meeting.is_mandatory,
     is_cancelled !== undefined ? (is_cancelled ? 1 : 0) : meeting.is_cancelled,
     name !== undefined ? name : meeting.name,
+    season_id !== undefined ? (season_id || null) : meeting.season_id,
     autoClockout,
     req.params.id
   );

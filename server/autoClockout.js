@@ -6,14 +6,11 @@ function runAutoClockout() {
   const today = now.format('YYYY-MM-DD');
   const currentTime = now.format('HH:mm');
 
-  // Get active season
-  const season = db.prepare('SELECT * FROM seasons WHERE is_active = 1').get();
-  if (!season) return;
-
-  // Get today's meetings that have passed their auto-clockout time
+  // Get today's meetings that have passed their auto-clockout time. Meetings
+  // are not required to belong to a season, so match by date regardless of tag.
   const meetings = db.prepare(
-    'SELECT * FROM meetings WHERE season_id = ? AND date = ? AND is_cancelled = 0 AND auto_clockout_time <= ?'
-  ).all(season.id, today, currentTime);
+    'SELECT * FROM meetings WHERE date = ? AND is_cancelled = 0 AND auto_clockout_time <= ?'
+  ).all(today, currentTime);
 
   // Find all open time entries for students who are clocked in
   const openEntries = db.prepare(
