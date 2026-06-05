@@ -36,6 +36,32 @@ function checkIfLate(clockInTime, meeting) {
   return dayjs(clockInTime).isAfter(graceEnd);
 }
 
+// Determine whether a clocked session fell outside of any scheduled meeting
+// window. Used to prompt the student to describe what they were working on when
+// they show up outside of normal meeting hours (more than an hour early, after
+// a meeting ends, or on a day with no scheduled meeting).
+function isOutsideMeetingHours(clockIn, clockOut) {
+  const start = dayjs(clockIn);
+  const end = dayjs(clockOut);
+  // Look at meetings on either the clock-in or clock-out date to be safe.
+  const dates = new Set([start.format('YYYY-MM-DD'), end.format('YYYY-MM-DD')]);
+  for (const date of dates) {
+    const meetings = db.prepare(
+      'SELECT * FROM meetings WHERE date = ? AND is_cancelled = 0'
+    ).all(date);
+    for (const m of meetings) {
+      const mStart = dayjs(`${m.date} ${m.start_time}`);
+      const mEnd = dayjs(`${m.date} ${m.end_time}`);
+      // Overlap between the session and the meeting window means the student
+      // was present during normal hours.
+      if (start.isBefore(mEnd) && end.isAfter(mStart)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Clock in (kiosk)
 router.post('/clock-in', (req, res) => {
   const { student_id } = req.body;
@@ -82,11 +108,27 @@ router.post('/clock-out', (req, res) => {
   const hours = Math.floor(duration / 60);
   const minutes = duration % 60;
 
+  const requiresNote = isOutsideMeetingHours(active.clock_in, now);
+
   res.json({
     entry: { ...active, clock_out: now },
     duration: { hours, minutes },
+    requiresNote,
     message: `Clocked out at ${dayjs(now).format('h:mm A')}`
   });
+});
+
+// Save the "what were you working on?" note for an out-of-hours session
+// (kiosk). Public because it is part of the student clock-out flow.
+router.post('/:id/work-note', (req, res) => {
+  const { note } = req.body;
+  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Entry not found' });
+  if (!note || !note.trim()) {
+    return res.status(400).json({ error: 'A description is required' });
+  }
+  db.prepare('UPDATE time_entries SET notes = ? WHERE id = ?').run(note.trim(), req.params.id);
+  res.json({ success: true });
 });
 
 // Get time entries for a student (admin)

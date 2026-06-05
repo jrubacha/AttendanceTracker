@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LogoMark } from '../components/Logo';
+import { api } from '../utils/api';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', end: true },
   { path: '/admin/students', label: 'Members' },
   { path: '/admin/schedule', label: 'Schedule' },
+  { path: '/admin/requests', label: 'Requests', badge: 'pending' },
   { path: '/admin/seasons', label: 'Seasons' },
   { path: '/admin/reports', label: 'Reports' },
   { path: '/admin/settings', label: 'Settings' },
@@ -14,6 +16,20 @@ const NAV_ITEMS = [
 function AdminLayout({ admin, onLogout }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPending() {
+      try {
+        const { count } = await api.getPendingRequestCount();
+        if (!cancelled) setPendingCount(count);
+      } catch { /* ignore */ }
+    }
+    loadPending();
+    const interval = setInterval(loadPending, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   async function handleLogout() {
     await onLogout();
@@ -42,12 +58,17 @@ function AdminLayout({ admin, onLogout }) {
               end={item.end}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `block px-4 py-2.5 rounded-lg text-sm mb-1 transition-colors ${
+                `flex items-center justify-between px-4 py-2.5 rounded-lg text-sm mb-1 transition-colors ${
                   isActive ? 'bg-kiosk-accent text-white' : 'text-kiosk-muted hover:text-kiosk-text hover:bg-slate-700'
                 }`
               }
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.badge === 'pending' && pendingCount > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-kiosk-danger text-white text-xs font-bold">
+                  {pendingCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
