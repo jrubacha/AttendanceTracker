@@ -337,6 +337,17 @@ function ExemptionModal({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Allow typing the PIN with a physical keyboard, not just the on-screen pad.
+  useEffect(() => {
+    if (step !== 'pin') return;
+    function onKey(e) {
+      if (e.key >= '0' && e.key <= '9') { e.preventDefault(); handlePinKey(e.key); }
+      else if (e.key === 'Backspace') { e.preventDefault(); handlePinKey('⌫'); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step, pin, loading]);
+
   async function handlePinKey(key) {
     if (loading) return;
     if (key === '⌫') { setPin(p => p.slice(0, -1)); setError(''); return; }
