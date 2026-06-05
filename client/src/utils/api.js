@@ -121,6 +121,11 @@ export const api = {
   // Import
   importAttendance: (csv) => request('/import/attendance', { method: 'POST', body: { csv } }),
 
+  // Settings & Google Calendar
+  getSettings: () => request('/settings'),
+  updateSettings: (data) => request('/settings', { method: 'PUT', body: data }),
+  syncGoogleCalendar: () => request('/settings/google-sync', { method: 'POST' }),
+
   // Database restore
   restoreDatabase: (file) => fetch(`${API_BASE}/restore`, {
     method: 'POST',
