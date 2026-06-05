@@ -145,7 +145,9 @@ async function initialize() {
 
     CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
     CREATE INDEX IF NOT EXISTS idx_meetings_season ON meetings(season_id);
-    CREATE INDEX IF NOT EXISTS idx_meetings_google ON meetings(google_event_id);
+    -- NOTE: the index on google_event_id is created in the migration section
+    -- below, after the column is guaranteed to exist (an existing DB's meetings
+    -- table is not recreated here, so the column may not exist yet).
 
     CREATE TABLE IF NOT EXISTS double_time_rules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
