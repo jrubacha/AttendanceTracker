@@ -185,7 +185,8 @@ router.post('/requests/:id/approve', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// Admin: deny a request -> records status, no exemption created.
+// Admin: deny a request -> records status and removes any exemption that a
+// prior approval may have created (so approvals can be revoked).
 router.post('/requests/:id/deny', requireAdmin, (req, res) => {
   const request = db.prepare('SELECT * FROM exemption_requests WHERE id = ?').get(req.params.id);
   if (!request) return res.status(404).json({ error: 'Request not found' });
@@ -193,6 +194,10 @@ router.post('/requests/:id/deny', requireAdmin, (req, res) => {
   db.prepare(
     "UPDATE exemption_requests SET status = 'denied', reviewed_at = datetime('now') WHERE id = ?"
   ).run(req.params.id);
+
+  // Revoke the exemption created when this request was previously approved.
+  db.prepare('DELETE FROM exemptions WHERE student_id = ? AND meeting_id = ?')
+    .run(request.student_id, request.meeting_id);
 
   res.json({ success: true });
 });

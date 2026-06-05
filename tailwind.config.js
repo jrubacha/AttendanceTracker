@@ -45,6 +45,15 @@ export default {
       letterSpacing: {
         heading: '0.04em'
       },
+      // Bump body text up one step (xs–xl) while leaving 2xl+ untouched, so the
+      // main display copy is larger but brand headings keep their sizes.
+      fontSize: {
+        xs: ['0.875rem', '1.25rem'],
+        sm: ['1rem', '1.5rem'],
+        base: ['1.125rem', '1.75rem'],
+        lg: ['1.25rem', '1.75rem'],
+        xl: ['1.5rem', '2rem']
+      },
       boxShadow: {
         // Subtle red glow used sparingly for emphasis (brand "pop of red").
         accent: '0 0 0 1px rgba(158,0,1,0.4), 0 8px 24px -8px rgba(158,0,1,0.45)'

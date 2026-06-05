@@ -29,7 +29,7 @@ router.post('/', requireAdmin, (req, res) => {
   if (!name || !type || !start_date || !end_date) {
     return res.status(400).json({ error: 'All fields required' });
   }
-  if (!['off_season', 'build_season'].includes(type)) {
+  if (!['off_season', 'build_season', 'custom_range'].includes(type)) {
     return res.status(400).json({ error: 'Invalid season type' });
   }
 
