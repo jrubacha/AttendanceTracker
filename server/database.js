@@ -186,6 +186,18 @@ async function initialize() {
       UNIQUE(student_id, meeting_id)
     );
 
+    CREATE TABLE IF NOT EXISTS exemption_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+      reason TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied')),
+      created_at TEXT DEFAULT (datetime('now')),
+      reviewed_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_exemption_requests_status ON exemption_requests(status);
+
     CREATE TABLE IF NOT EXISTS thresholds (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       season_id INTEGER NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,

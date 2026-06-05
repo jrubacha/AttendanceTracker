@@ -93,6 +93,7 @@ export const api = {
   // Time Entries
   clockIn: (student_id) => request('/time-entries/clock-in', { method: 'POST', body: { student_id } }),
   clockOut: (student_id) => request('/time-entries/clock-out', { method: 'POST', body: { student_id } }),
+  submitWorkNote: (entryId, note) => request(`/time-entries/${entryId}/work-note`, { method: 'POST', body: { note } }),
   getStudentEntries: (studentId, seasonId) => request(`/time-entries/student/${studentId}?seasonId=${seasonId || ''}`),
   createManualEntry: (data) => request('/time-entries/manual', { method: 'POST', body: data }),
   updateEntry: (id, data) => request(`/time-entries/${id}`, { method: 'PUT', body: data }),
@@ -102,6 +103,14 @@ export const api = {
   // Exemptions
   getStudentExemptions: (studentId, seasonId) => request(`/exemptions/student/${studentId}?seasonId=${seasonId || ''}`),
   toggleExemption: (student_id, meeting_id, reason) => request('/exemptions/toggle', { method: 'POST', body: { student_id, meeting_id, reason } }),
+
+  // Exemption requests
+  getRequestableMeetings: () => request('/exemptions/requestable-meetings'),
+  requestExemption: (pin, meeting_id, reason) => request('/exemptions/request', { method: 'POST', body: { pin, meeting_id, reason } }),
+  getExemptionRequests: (status) => request(`/exemptions/requests${status ? `?status=${status}` : ''}`),
+  getPendingRequestCount: () => request('/exemptions/requests/pending-count'),
+  approveExemptionRequest: (id) => request(`/exemptions/requests/${id}/approve`, { method: 'POST' }),
+  denyExemptionRequest: (id) => request(`/exemptions/requests/${id}/deny`, { method: 'POST' }),
 
   // Thresholds
   getThresholds: (seasonId) => request(`/thresholds/${seasonId}`),

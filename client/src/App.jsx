@@ -12,6 +12,7 @@ import Schedule from './pages/admin/Schedule';
 import Seasons from './pages/admin/Seasons';
 import Settings from './pages/admin/Settings';
 import Reports from './pages/admin/Reports';
+import Requests from './pages/admin/Requests';
 
 function App() {
   const [setupComplete, setSetupComplete] = useState(null);
@@ -77,6 +78,7 @@ function App() {
         <Route path="students" element={<Students />} />
         <Route path="students/:id" element={<StudentDetail />} />
         <Route path="schedule" element={<Schedule />} />
+        <Route path="requests" element={<Requests />} />
         <Route path="seasons" element={<Seasons />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
