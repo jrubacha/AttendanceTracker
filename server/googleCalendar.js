@@ -1,6 +1,15 @@
-const ical = require('node-ical');
 const dayjs = require('dayjs');
 const { db } = require('./database');
+
+// node-ical is an optional dependency for the Google Calendar integration. Load
+// it defensively so a missing install can never crash the server on startup —
+// the rest of the app keeps working and sync reports a clear error instead.
+let ical = null;
+try {
+  ical = require('node-ical');
+} catch {
+  console.warn('node-ical not installed — Google Calendar sync is disabled. Run `npm install` to enable it.');
+}
 
 // Default category for imported events. Admins can change a meeting's category
 // (Meeting / Competition / Outreach) afterward and it is preserved across syncs.
@@ -147,6 +156,10 @@ async function fetchInstances(url, tz) {
 // Sync the configured public Google Calendar into the meetings table.
 // Returns { configured, imported, updated, removed, cancelled, total }.
 async function syncGoogleCalendar() {
+  if (!ical) {
+    throw new Error('node-ical is not installed. Run `npm install` to enable Google Calendar sync.');
+  }
+
   const url = getSetting('google_calendar_url');
   if (!url || !url.trim()) return { configured: false };
 
