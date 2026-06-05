@@ -130,6 +130,7 @@ export const api = {
     }
     return request(url);
   },
+  getMyReport: (pin, seasonId) => request('/reports/my-report', { method: 'POST', body: { pin, seasonId } }),
   getStudentReport: (studentId, seasonId, dateRange) => {
     let url = `/reports/student/${studentId}/${seasonId}`;
     if (dateRange?.startDate && dateRange?.endDate) {
