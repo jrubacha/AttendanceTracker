@@ -7,9 +7,12 @@ const { requireAdmin } = require('../auth');
 const router = express.Router();
 
 // Resolve a student's threshold band (color + label) for a given percentage.
-// Mentors aren't held to minimums, so they get a neutral band.
+// Mentors aren't held to minimums, so they get a neutral band. Seasons with no
+// thresholds defined (e.g. off-season or custom ranges) also get a neutral band
+// rather than defaulting everyone to red "Below minimum".
 function thresholdBand(role, percentage, thresholds) {
   if (role === 'mentor') return { color: '#94a3b8', name: 'Mentor' };
+  if (!thresholds || thresholds.length === 0) return { color: '#94a3b8', name: '—' };
   let color = '#ef4444';
   let name = 'Below minimum';
   for (const t of thresholds) {
@@ -287,27 +290,13 @@ router.get('/dashboard/:seasonId', requireAdmin, (req, res) => {
 
   const report = students.map(student => {
     const attendance = calculateStudentAttendance(student.id, parseInt(req.params.seasonId), dateRange);
-
-    // Mentors are not held to minimums, so thresholds don't apply to them.
-    let thresholdColor = '#94a3b8'; // neutral slate
-    let thresholdName = 'Mentor';
-    if (student.role !== 'mentor') {
-      thresholdColor = '#ef4444'; // red default
-      thresholdName = 'Below minimum';
-      for (const t of thresholds) {
-        if (attendance.percentage >= t.percentage) {
-          thresholdColor = t.color;
-          thresholdName = t.name;
-          break;
-        }
-      }
-    }
+    const band = thresholdBand(student.role, attendance.percentage, thresholds);
 
     return {
       ...student,
       ...attendance,
-      thresholdColor,
-      thresholdName,
+      thresholdColor: band.color,
+      thresholdName: band.name,
       hasAutoClockoutWarning: attendance.autoClockoutCount >= 3
     };
   });
@@ -424,8 +413,13 @@ router.post('/my-report', (req, res) => {
   }
 
   const data = buildStudentReport(student.id, useSeasonId, null);
-  // Strip raw clock-in/out entries — students see a summary, not the log.
-  const meetingDetails = data.meetingDetails.map(({ entries, ...m }) => m);
+  // Show only meetings that have already happened (exclude today and future, so
+  // upcoming meetings aren't listed as "absent" before they occur). Also strip
+  // raw clock-in/out entries — students see a summary, not the log.
+  const today = dayjs().format('YYYY-MM-DD');
+  const meetingDetails = data.meetingDetails
+    .filter(m => m.date < today)
+    .map(({ entries, ...m }) => m);
   const band = thresholdBand(student.role, data.attendance.percentage, data.thresholds);
 
   res.json({

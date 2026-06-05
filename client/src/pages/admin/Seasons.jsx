@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 
+const SEASON_TYPE_LABELS = {
+  build_season: 'Build Season',
+  off_season: 'Off Season',
+  custom_range: 'Custom Range',
+};
+
 function Seasons() {
   const [seasons, setSeasons] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -79,6 +85,7 @@ function Seasons() {
                 className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text focus:outline-none">
                 <option value="build_season">Build Season</option>
                 <option value="off_season">Off Season</option>
+                <option value="custom_range">Custom Range</option>
               </select>
             </div>
             <div>
@@ -111,6 +118,7 @@ function Seasons() {
                 className="w-full bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text focus:outline-none">
                 <option value="build_season">Build Season</option>
                 <option value="off_season">Off Season</option>
+                <option value="custom_range">Custom Range</option>
               </select>
             </div>
             <div>
@@ -138,10 +146,10 @@ function Seasons() {
               <div>
                 <h3 className="text-kiosk-text font-semibold">
                   {s.name}
-                  {s.is_active && <span className="ml-2 text-xs text-kiosk-accent bg-kiosk-accent/20 px-2 py-0.5 rounded">Active</span>}
+                  {!!s.is_active && <span className="ml-2 text-xs text-kiosk-accent bg-kiosk-accent/20 px-2 py-0.5 rounded">Active</span>}
                 </h3>
                 <p className="text-kiosk-muted text-sm">
-                  {s.type === 'build_season' ? 'Build Season' : 'Off Season'} | {s.start_date} to {s.end_date}
+                  {SEASON_TYPE_LABELS[s.type] || s.type} | {s.start_date} to {s.end_date}
                 </p>
               </div>
               <div className="flex gap-2">

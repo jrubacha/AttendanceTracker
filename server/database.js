@@ -111,7 +111,7 @@ async function initialize() {
     CREATE TABLE IF NOT EXISTS seasons (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('off_season', 'build_season')),
+      type TEXT NOT NULL CHECK(type IN ('off_season', 'build_season', 'custom_range')),
       start_date TEXT NOT NULL,
       end_date TEXT NOT NULL,
       is_active INTEGER DEFAULT 0,
@@ -256,6 +256,35 @@ async function initialize() {
         ALTER TABLE meetings_new RENAME TO meetings;
         CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
         CREATE INDEX IF NOT EXISTS idx_meetings_season ON meetings(season_id);
+      `);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch { /* migration already applied or not needed */ }
+
+  // Migration: widen the seasons.type CHECK constraint to allow 'custom_range'.
+  // SQLite can't alter a CHECK in place, so rebuild the table if the existing
+  // schema doesn't already permit it.
+  try {
+    const seasonsSql = db.prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'seasons'"
+    ).get();
+    if (seasonsSql && seasonsSql.sql && !seasonsSql.sql.includes('custom_range')) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE seasons_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('off_season', 'build_season', 'custom_range')),
+          start_date TEXT NOT NULL,
+          end_date TEXT NOT NULL,
+          is_active INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        INSERT INTO seasons_new (id, name, type, start_date, end_date, is_active, created_at, updated_at)
+          SELECT id, name, type, start_date, end_date, is_active, created_at, updated_at FROM seasons;
+        DROP TABLE seasons;
+        ALTER TABLE seasons_new RENAME TO seasons;
       `);
       db.pragma('foreign_keys = ON');
     }

@@ -110,8 +110,8 @@ function Requests() {
                     {r.reviewed_at && ` · Reviewed ${fmtDate(r.reviewed_at)}`}
                   </div>
                 </div>
-                {r.status === 'pending' && (
-                  <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 flex-shrink-0">
+                  {r.status !== 'approved' && (
                     <button
                       onClick={() => handleApprove(r.id)}
                       disabled={busyId === r.id}
@@ -119,15 +119,17 @@ function Requests() {
                     >
                       Approve
                     </button>
+                  )}
+                  {r.status !== 'denied' && (
                     <button
                       onClick={() => handleDeny(r.id)}
                       disabled={busyId === r.id}
                       className="px-4 py-2 rounded-lg border border-slate-600 text-kiosk-muted text-sm font-semibold hover:text-kiosk-danger hover:border-kiosk-danger disabled:opacity-50"
                     >
-                      Deny
+                      {r.status === 'approved' ? 'Revoke' : 'Deny'}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           ))}
