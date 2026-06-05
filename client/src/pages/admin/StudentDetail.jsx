@@ -16,6 +16,7 @@ function StudentDetail() {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editRole, setEditRole] = useState('student');
   const [editHoursAdj, setEditHoursAdj] = useState(0);
   const [editAvailableAdj, setEditAvailableAdj] = useState(0);
   const [newPin, setNewPin] = useState(null);
@@ -45,6 +46,7 @@ function StudentDetail() {
       setStudent(s);
       setEditName(s.name);
       setEditNotes(s.notes || '');
+      setEditRole(s.role || 'student');
       setEditHoursAdj(s.hours_adjustment || 0);
       setEditAvailableAdj(s.available_hours_adjustment || 0);
     } catch { navigate('/admin/students'); }
@@ -74,6 +76,7 @@ function StudentDetail() {
       await api.updateStudent(id, {
         name: editName,
         notes: editNotes,
+        role: editRole,
         hours_adjustment: parseFloat(editHoursAdj) || 0,
         available_hours_adjustment: parseFloat(editAvailableAdj) || 0,
       });
@@ -178,6 +181,14 @@ function StudentDetail() {
                   className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-xl font-bold focus:outline-none" />
                 <input value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Notes"
                   className="block bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none w-full" />
+                <div>
+                  <label className="text-kiosk-muted text-xs block mb-1">Role</label>
+                  <select value={editRole} onChange={e => setEditRole(e.target.value)}
+                    className="bg-kiosk-bg border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none w-40">
+                    <option value="student">Student</option>
+                    <option value="mentor">Mentor</option>
+                  </select>
+                </div>
                 <div className="flex flex-wrap gap-3">
                   <div>
                     <label className="text-kiosk-muted text-xs block mb-1">Hours Adjustment</label>
@@ -198,7 +209,12 @@ function StudentDetail() {
               </div>
             ) : (
               <>
-                <h1 className="brand-heading text-3xl text-kiosk-text">{student.name}</h1>
+                <h1 className="brand-heading text-3xl text-kiosk-text flex items-center gap-3">
+                  {student.name}
+                  <span className={`text-xs px-2 py-0.5 rounded font-sans ${student.role === 'mentor' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                    {student.role === 'mentor' ? 'Mentor' : 'Student'}
+                  </span>
+                </h1>
                 <p className="text-kiosk-muted text-sm">PIN ending: {student.pin_last4}</p>
                 {student.notes && <p className="text-kiosk-muted text-sm mt-1">{student.notes}</p>}
               </>
@@ -282,15 +298,17 @@ function StudentDetail() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
               <div className="text-kiosk-muted text-xs">Attendance</div>
-              <div className="text-2xl font-bold text-kiosk-text">{report.percentage}%</div>
+              <div className="text-2xl font-bold text-kiosk-text">{report.isMentor ? '—' : `${report.percentage}%`}</div>
             </div>
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
               <div className="text-kiosk-muted text-xs">Total Hours</div>
               <div className="text-2xl font-bold text-kiosk-text">{report.totalCredited}</div>
             </div>
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
-              <div className="text-kiosk-muted text-xs">Mandatory</div>
-              <div className="text-2xl font-bold text-kiosk-text">{report.mandatoryHoursAttended} / {report.mandatoryHoursAvailable}</div>
+              <div className="text-kiosk-muted text-xs">{report.isMentor ? 'Hours Attended' : 'Mandatory'}</div>
+              <div className="text-2xl font-bold text-kiosk-text">
+                {report.isMentor ? report.mandatoryHoursAttended : `${report.mandatoryHoursAttended} / ${report.mandatoryHoursAvailable}`}
+              </div>
             </div>
             <div className="bg-kiosk-surface rounded-xl p-4 border border-slate-700">
               <div className="text-kiosk-muted text-xs">Bonus Hours</div>

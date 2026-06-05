@@ -13,6 +13,7 @@ function Dashboard() {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [filter, setFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [dateRangeEnabled, setDateRangeEnabled] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -82,7 +83,10 @@ function Dashboard() {
   }
 
   const filtered = report.filter(s => {
+    if (roleFilter !== 'all' && s.role !== roleFilter) return false;
     if (filter === 'all') return true;
+    // Attendance thresholds don't apply to mentors, so they're excluded from %-based filters
+    if (s.isMentor) return false;
     if (filter === 'below60') return s.percentage < 60;
     if (filter === 'below80') return s.percentage < 80;
     if (filter === 'above80') return s.percentage >= 80;
@@ -107,9 +111,15 @@ function Dashboard() {
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+            className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
+            <option value="all">All Roles</option>
+            <option value="student">Students</option>
+            <option value="mentor">Mentors</option>
+          </select>
           <select value={filter} onChange={e => setFilter(e.target.value)}
             className="bg-kiosk-surface border border-slate-600 rounded-lg px-3 py-2 text-kiosk-text text-sm focus:outline-none">
-            <option value="all">All Students</option>
+            <option value="all">All Attendance</option>
             <option value="below60">Below 60%</option>
             <option value="below80">Below 80%</option>
             <option value="above80">80%+</option>
@@ -190,12 +200,15 @@ function Dashboard() {
                 onClick={() => navigate(`/admin/students/${student.id}`)}>
                 <td className="p-3 text-kiosk-text font-medium">
                   {student.name}
+                  {student.isMentor && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">Mentor</span>}
                   {student.hasAutoClockoutWarning && <span className="ml-2 text-kiosk-warning" title="3+ auto clock-outs">⚠</span>}
                 </td>
                 <td className="p-3 text-right text-kiosk-text">{student.totalCredited}</td>
-                <td className="p-3 text-right text-kiosk-muted hidden md:table-cell">{student.mandatoryHoursAttended}/{student.mandatoryHoursAvailable}</td>
-                <td className="p-3 text-right font-bold" style={{ color: student.thresholdColor }}>
-                  {student.percentage}%
+                <td className="p-3 text-right text-kiosk-muted hidden md:table-cell">
+                  {student.isMentor ? '—' : `${student.mandatoryHoursAttended}/${student.mandatoryHoursAvailable}`}
+                </td>
+                <td className="p-3 text-right font-bold" style={{ color: student.isMentor ? '#94a3b8' : student.thresholdColor }}>
+                  {student.isMentor ? '—' : `${student.percentage}%`}
                 </td>
                 <td className="p-3 text-right text-kiosk-muted hidden lg:table-cell">{student.bonusHours}</td>
                 <td className="p-3 text-center hidden md:table-cell">
@@ -215,7 +228,7 @@ function Dashboard() {
 
       {sorted.length === 0 && (
         <div className="text-center py-12 text-kiosk-muted">
-          {report.length === 0 ? 'No students added yet.' : 'No students match the current filter.'}
+          {report.length === 0 ? 'No members added yet.' : 'No members match the current filter.'}
         </div>
       )}
     </div>

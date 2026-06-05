@@ -45,21 +45,27 @@ router.post('/verify-pin', (req, res) => {
   });
 });
 
-// List all students (admin)
+// List all students (admin). Optional filters: includeArchived, role (student|mentor)
 router.get('/', requireAdmin, (req, res) => {
   const includeArchived = req.query.includeArchived === 'true';
-  let students;
-  if (includeArchived) {
-    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students ORDER BY name').all();
-  } else {
-    students = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students WHERE is_archived = 0 ORDER BY name').all();
+  const role = req.query.role;
+  const conditions = [];
+  const params = [];
+  if (!includeArchived) conditions.push('is_archived = 0');
+  if (role === 'student' || role === 'mentor') {
+    conditions.push('role = ?');
+    params.push(role);
   }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const students = db.prepare(
+    `SELECT id, name, pin_last4, role, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students ${where} ORDER BY name`
+  ).all(...params);
   res.json({ students });
 });
 
 // Get single student (admin)
 router.get('/:id', requireAdmin, (req, res) => {
-  const student = db.prepare('SELECT id, name, pin_last4, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students WHERE id = ?').get(req.params.id);
+  const student = db.prepare('SELECT id, name, pin_last4, role, is_archived, notes, hours_adjustment, available_hours_adjustment, created_at FROM students WHERE id = ?').get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: 'Student not found' });
   }
@@ -68,10 +74,11 @@ router.get('/:id', requireAdmin, (req, res) => {
 
 // Create student (admin)
 router.post('/', requireAdmin, (req, res) => {
-  const { name, pin, notes } = req.body;
+  const { name, pin, notes, role } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Name is required' });
   }
+  const memberRole = role === 'mentor' ? 'mentor' : 'student';
 
   let studentPin = pin;
   if (!studentPin) {
@@ -90,31 +97,32 @@ router.post('/', requireAdmin, (req, res) => {
 
   const pinHash = hashPin(studentPin);
   const result = db.prepare(
-    'INSERT INTO students (name, pin_hash, pin_last4, notes) VALUES (?, ?, ?, ?)'
-  ).run(name.trim(), pinHash, studentPin.slice(-4), notes || '');
+    'INSERT INTO students (name, pin_hash, pin_last4, notes, role) VALUES (?, ?, ?, ?, ?)'
+  ).run(name.trim(), pinHash, studentPin.slice(-4), notes || '', memberRole);
 
   res.json({
-    student: { id: result.lastInsertRowid, name: name.trim(), pin: studentPin },
-    message: 'Student created'
+    student: { id: result.lastInsertRowid, name: name.trim(), pin: studentPin, role: memberRole },
+    message: 'Member created'
   });
 });
 
 // Update student (admin)
 router.put('/:id', requireAdmin, (req, res) => {
-  const { name, notes, is_archived, hours_adjustment, available_hours_adjustment } = req.body;
+  const { name, notes, is_archived, hours_adjustment, available_hours_adjustment, role } = req.body;
   const student = db.prepare('SELECT * FROM students WHERE id = ?').get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: 'Student not found' });
   }
 
   db.prepare(
-    'UPDATE students SET name = ?, notes = ?, is_archived = ?, hours_adjustment = ?, available_hours_adjustment = ?, updated_at = datetime(\'now\') WHERE id = ?'
+    'UPDATE students SET name = ?, notes = ?, is_archived = ?, hours_adjustment = ?, available_hours_adjustment = ?, role = ?, updated_at = datetime(\'now\') WHERE id = ?'
   ).run(
     name !== undefined ? name.trim() : student.name,
     notes !== undefined ? notes : student.notes,
     is_archived !== undefined ? (is_archived ? 1 : 0) : student.is_archived,
     hours_adjustment !== undefined ? parseFloat(hours_adjustment) || 0 : (student.hours_adjustment || 0),
     available_hours_adjustment !== undefined ? parseFloat(available_hours_adjustment) || 0 : (student.available_hours_adjustment || 0),
+    (role === 'student' || role === 'mentor') ? role : student.role,
     req.params.id
   );
 

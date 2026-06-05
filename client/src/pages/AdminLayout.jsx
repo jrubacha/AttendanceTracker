@@ -4,7 +4,7 @@ import { LogoMark } from '../components/Logo';
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', end: true },
-  { path: '/admin/students', label: 'Students' },
+  { path: '/admin/students', label: 'Members' },
   { path: '/admin/schedule', label: 'Schedule' },
   { path: '/admin/seasons', label: 'Seasons' },
   { path: '/admin/reports', label: 'Reports' },

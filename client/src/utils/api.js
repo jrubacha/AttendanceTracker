@@ -31,7 +31,11 @@ export const api = {
 
   // Students
   verifyPin: (pin) => request('/students/verify-pin', { method: 'POST', body: { pin } }),
-  getStudents: (includeArchived = false) => request(`/students?includeArchived=${includeArchived}`),
+  getStudents: (includeArchived = false, role) => {
+    let url = `/students?includeArchived=${includeArchived}`;
+    if (role) url += `&role=${role}`;
+    return request(url);
+  },
   getStudent: (id) => request(`/students/${id}`),
   createStudent: (data) => request('/students', { method: 'POST', body: data }),
   updateStudent: (id, data) => request(`/students/${id}`, { method: 'PUT', body: data }),
@@ -49,10 +53,19 @@ export const api = {
   getScheduleDefaults: (seasonId) => request(`/schedule/defaults/${seasonId}`),
   setScheduleDefaults: (seasonId, defaults) => request(`/schedule/defaults/${seasonId}`, { method: 'POST', body: { defaults } }),
   generateMeetings: (seasonId) => request(`/schedule/generate/${seasonId}`, { method: 'POST' }),
+  generateMeetingsRange: (data) => request('/schedule/generate-meetings', { method: 'POST', body: data }),
+  assignSeasonToRange: (data) => request('/schedule/assign-season', { method: 'POST', body: data }),
   getMeetings: (seasonId, start, end) => {
     let url = `/schedule/meetings/${seasonId}`;
     if (start && end) url += `?start=${start}&end=${end}`;
     return request(url);
+  },
+  getMeetingsByRange: (start, end, seasonId) => {
+    const params = new URLSearchParams();
+    if (start) params.set('start', start);
+    if (end) params.set('end', end);
+    if (seasonId) params.set('season_id', seasonId);
+    return request(`/schedule/meetings?${params.toString()}`);
   },
   getTodayMeetings: () => request('/schedule/today'),
   createMeeting: (data) => request('/schedule/meetings', { method: 'POST', body: data }),

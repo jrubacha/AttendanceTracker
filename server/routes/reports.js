@@ -130,9 +130,10 @@ function calculateStudentAttendance(studentId, seasonId, dateRange) {
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(seasonId);
   if (!season) return null;
 
-  const student = db.prepare('SELECT hours_adjustment, available_hours_adjustment FROM students WHERE id = ?').get(studentId);
+  const student = db.prepare('SELECT role, hours_adjustment, available_hours_adjustment FROM students WHERE id = ?').get(studentId);
   const hoursAdj = student?.hours_adjustment || 0;
   const availableAdj = student?.available_hours_adjustment || 0;
+  const isMentor = student?.role === 'mentor';
 
   // Use custom date range if provided, otherwise use full season
   const rangeStart = dateRange?.startDate || season.start_date;
@@ -240,6 +241,7 @@ function calculateStudentAttendance(studentId, seasonId, dateRange) {
 
   return {
     studentId,
+    isMentor,
     mandatoryHoursAttended: Math.round(mandatoryHoursAttended * 100) / 100,
     mandatoryHoursAvailable: Math.round(mandatoryHoursAvailable * 100) / 100,
     bonusHours: Math.round(bonusHours * 100) / 100,
@@ -256,22 +258,31 @@ function calculateStudentAttendance(studentId, seasonId, dateRange) {
 // Dashboard report - all students
 // Supports optional ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD query params
 router.get('/dashboard/:seasonId', requireAdmin, (req, res) => {
-  const students = db.prepare('SELECT id, name, pin_last4, is_archived FROM students WHERE is_archived = 0 ORDER BY name').all();
+  const { startDate, endDate, role } = req.query;
+  const roleFilter = (role === 'student' || role === 'mentor') ? role : null;
+  const students = roleFilter
+    ? db.prepare('SELECT id, name, pin_last4, role, is_archived FROM students WHERE is_archived = 0 AND role = ? ORDER BY name').all(roleFilter)
+    : db.prepare('SELECT id, name, pin_last4, role, is_archived FROM students WHERE is_archived = 0 ORDER BY name').all();
   const thresholds = db.prepare('SELECT * FROM thresholds WHERE season_id = ? ORDER BY percentage DESC').all(req.params.seasonId);
   const season = db.prepare('SELECT * FROM seasons WHERE id = ?').get(req.params.seasonId);
 
-  const { startDate, endDate } = req.query;
   const dateRange = (startDate && endDate) ? { startDate, endDate } : null;
 
   const report = students.map(student => {
     const attendance = calculateStudentAttendance(student.id, parseInt(req.params.seasonId), dateRange);
-    let thresholdColor = '#ef4444'; // red default
-    let thresholdName = 'Below minimum';
-    for (const t of thresholds) {
-      if (attendance.percentage >= t.percentage) {
-        thresholdColor = t.color;
-        thresholdName = t.name;
-        break;
+
+    // Mentors are not held to minimums, so thresholds don't apply to them.
+    let thresholdColor = '#94a3b8'; // neutral slate
+    let thresholdName = 'Mentor';
+    if (student.role !== 'mentor') {
+      thresholdColor = '#ef4444'; // red default
+      thresholdName = 'Below minimum';
+      for (const t of thresholds) {
+        if (attendance.percentage >= t.percentage) {
+          thresholdColor = t.color;
+          thresholdName = t.name;
+          break;
+        }
       }
     }
 
@@ -289,7 +300,7 @@ router.get('/dashboard/:seasonId', requireAdmin, (req, res) => {
 
 // Individual student report
 router.get('/student/:studentId/:seasonId', requireAdmin, (req, res) => {
-  const student = db.prepare('SELECT id, name, pin_last4, is_archived, notes FROM students WHERE id = ?').get(req.params.studentId);
+  const student = db.prepare('SELECT id, name, pin_last4, role, is_archived, notes FROM students WHERE id = ?').get(req.params.studentId);
   if (!student) return res.status(404).json({ error: 'Student not found' });
 
   const seasonId = parseInt(req.params.seasonId);
