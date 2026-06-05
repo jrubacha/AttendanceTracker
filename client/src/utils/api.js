@@ -10,13 +10,31 @@ async function request(path, options = {}) {
     config.body = JSON.stringify(options.body);
   }
 
-  const res = await fetch(url, config);
+  let res;
+  try {
+    res = await fetch(url, config);
+  } catch {
+    throw new Error('Could not reach the server. Is the backend running?');
+  }
   if (res.headers.get('content-type')?.includes('text/csv')) {
     return res;
   }
-  const data = await res.json();
+  // Read as text first so an empty or non-JSON body (e.g. the dev proxy when the
+  // backend is down, or a crash page) produces a clear message instead of
+  // "Unexpected end of JSON input".
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(
+      res.ok
+        ? 'The server returned an unexpected (non-JSON) response.'
+        : `Server error ${res.status}. The backend may be down or restarting.`
+    );
+  }
   if (!res.ok) {
-    throw new Error(data.error || 'Request failed');
+    throw new Error(data.error || `Request failed (${res.status})`);
   }
   return data;
 }
