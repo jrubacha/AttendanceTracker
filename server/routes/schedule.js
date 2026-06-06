@@ -192,13 +192,10 @@ router.get('/meetings/:seasonId', (req, res) => {
 // Get today's meetings (public - for kiosk display)
 router.get('/today', (req, res) => {
   const today = dayjs().format('YYYY-MM-DD');
-  const season = db.prepare('SELECT * FROM seasons WHERE is_active = 1').get();
-  if (!season) {
-    return res.json({ meetings: [] });
-  }
+  // Meetings aren't tied to a season — show everything scheduled for today.
   const meetings = db.prepare(
-    'SELECT * FROM meetings WHERE season_id = ? AND date = ? AND is_cancelled = 0 ORDER BY start_time'
-  ).all(season.id, today);
+    'SELECT * FROM meetings WHERE date = ? AND is_cancelled = 0 ORDER BY start_time'
+  ).all(today);
   res.json({ meetings });
 });
 
