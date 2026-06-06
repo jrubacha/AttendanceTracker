@@ -159,10 +159,11 @@ function calculateStudentAttendance(studentId, seasonId, dateRange) {
   const rangeStart = dateRange?.startDate || season.start_date;
   const rangeEnd = dateRange?.endDate || season.end_date;
 
-  // Get all meetings for the season within the date range
+  // A season encompasses every meeting whose date falls within its window —
+  // meetings are not tied to a season, so match purely by date range.
   const meetings = db.prepare(
-    'SELECT * FROM meetings WHERE season_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time'
-  ).all(seasonId, rangeStart, rangeEnd);
+    'SELECT * FROM meetings WHERE date >= ? AND date <= ? ORDER BY date, start_time'
+  ).all(rangeStart, rangeEnd);
 
   // Get exemptions for this student (only for meetings in range)
   const allExemptions = db.prepare(
@@ -315,8 +316,8 @@ function buildStudentReport(studentId, seasonId, dateRange) {
   const rangeStart = dateRange?.startDate || season.start_date;
   const rangeEnd = dateRange?.endDate || season.end_date;
 
-  // Get all meetings with attendance status (filtered by date range if provided)
-  const meetings = db.prepare('SELECT * FROM meetings WHERE season_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time').all(seasonId, rangeStart, rangeEnd);
+  // Meetings belong to a season by date range, not by an explicit tag.
+  const meetings = db.prepare('SELECT * FROM meetings WHERE date >= ? AND date <= ? ORDER BY date, start_time').all(rangeStart, rangeEnd);
   const exemptions = db.prepare('SELECT meeting_id FROM exemptions WHERE student_id = ?').all(studentId).map(e => e.meeting_id);
   const entries = db.prepare(`
     SELECT * FROM time_entries WHERE student_id = ? AND clock_in >= ? AND clock_in <= ? ORDER BY clock_in
